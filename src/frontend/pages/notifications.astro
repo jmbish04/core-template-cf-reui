@@ -1,0 +1,38 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: page toolbar, then the inbox Frame (notification timeline) beside a 26rem test-composer Frame.
+ * mobile (390px): the composer stacks under the inbox; timeline rows wrap, "Mark read" stays on the title line.
+ * vehicle: same as mobile; reading-only use, each "Mark read" is a separate tap target.
+ *
+ * @fileoverview /notifications — notification inbox.
+ *
+ * `<NotificationsFeed />` reads the D1-backed /api/notifications REST API and
+ * polls every 15s while visible (plain fetch island, so `client:load` is safe).
+ * `<SendTestNotification />` POSTs to the same API and pings the feed to
+ * refetch immediately.
+ */
+
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { NotificationsFeed } from "@/components/NotificationsFeed";
+import { SendTestNotification } from "@/components/settings/send-test-notification";
+---
+
+<BaseLayout
+  title="Notifications"
+  description="Notification inbox backed by the notifications API."
+>
+  <PageBody>
+    <PageToolbar
+      title="Notifications"
+      description="Events from tasks, projects and the system. Mark items read or send a test to see one arrive."
+    />
+    <div class="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_26rem]">
+      <NotificationsFeed client:load />
+      <div class="min-w-0">
+        <SendTestNotification client:load />
+      </div>
+    </div>
+  </PageBody>
+</BaseLayout>

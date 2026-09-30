@@ -1,0 +1,26 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: metric row, then two charts side by side, then the insight panel.
+ * mobile (390px): everything stacks; charts keep their own height.
+ * vehicle: not targeted — the charts expect a pointer for tooltips.
+ *
+ * Dashboard — the summary cut of `/api/dashboard/{stats,charts,insights}`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { DashboardView } from "@/components/dashboard/dashboard-view";
+---
+
+<BaseLayout
+  title="Dashboard"
+  description="Project and task totals, task status and throughput, and a core-guardian reading of the current numbers."
+>
+  <PageBody>
+    <PageToolbar
+      title="Dashboard"
+      description="The current state of every project and task, plus what core-guardian makes of it."
+    />
+    <DashboardView client:load />
+  </PageBody>
+</BaseLayout>

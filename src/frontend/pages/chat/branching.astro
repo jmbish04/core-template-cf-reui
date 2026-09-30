@@ -1,0 +1,31 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: 264px conversation rail beside the branch, fork rail above the composer.
+ * mobile (390px): the rail is hidden; the header's New chat and the fork rail stay,
+ *   so a branch is still reachable and switchable from the URL.
+ * vehicle: not targeted — forking expects a keyboard.
+ *
+ * `/chat/branching` — ReUI ai-chat-9. Regenerate and Edit fork the conversation
+ * onto a real sibling thread instead of overwriting the turn. `?t=<id>` is read
+ * here so a reload resumes the same branch with no client-side flash.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { AiChat } from "@/components/blocks/ai-chat-9/components/ai-chat";
+
+const threadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Branching chat"
+  description="Replies arrive as small documents. Regenerate or edit a turn and the answer lands on a new branch of the conversation rather than replacing it."
+>
+  <PageBody>
+    <PageToolbar
+      title="Branching"
+      description="Every regenerate and edit forks onto its own thread, so no version of an answer is ever lost."
+    />
+    <AiChat client:load initialThreadId={threadId} />
+  </PageBody>
+</BaseLayout>

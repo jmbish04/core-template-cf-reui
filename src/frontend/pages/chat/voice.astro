@@ -1,0 +1,31 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: a 16rem thread rail beside the assistant; the widen toggle drops the answer column's max width.
+ * mobile (390px): the rail is dropped and the assistant fills the page; the take strip and composer stay docked.
+ * vehicle: the one surface that suits it — the mic is the primary control and the answer reads aloud-sized.
+ *
+ * /chat/voice — ReUI ai-chat-8. Transcription is the browser's own
+ * SpeechRecognition and the take is a real MediaRecorder blob; there is no
+ * server-side transcription in this template. Mounted client:only="react"
+ * because both APIs are browser-only.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { ChatVoice } from "@/components/blocks/ai-chat-8/page";
+
+const initialThreadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Voice"
+  description="Speak the question. The take is playable with its transcription, and the answer arrives in whichever shape it deserves."
+>
+  <PageBody className="min-h-0">
+    <PageToolbar
+      title="Voice"
+      description="Recording and transcription both run in the browser. Where speech recognition is missing, the mic is hidden and typing still works."
+    />
+    <ChatVoice client:only="react" initialThreadId={initialThreadId} />
+  </PageBody>
+</BaseLayout>

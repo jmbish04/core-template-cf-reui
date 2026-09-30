@@ -1,0 +1,41 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: page toolbar, then a 200px vertical side-tab rail beside the section content.
+ * mobile (390px): the rail becomes a horizontal scroll rail of line tabs above the content; no page scroll sideways.
+ *
+ * @fileoverview SettingsLayout — shared chrome for every /settings/* page.
+ *
+ * Wraps BaseLayout (app-shell-2) with PageBody + PageToolbar and the static
+ * SettingsNav rail. The active route comes from `Astro.url.pathname`, so the
+ * rail renders correctly with no hydration.
+ */
+
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { SettingsNav } from "@/components/settings/settings-nav";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+
+// Drop any trailing slash so it matches the SETTINGS_SECTIONS hrefs exactly.
+const active = Astro.url.pathname.replace(/\/$/, "");
+---
+
+<BaseLayout title={`${title} · Settings`} description={description}>
+  <PageBody>
+    <PageToolbar title={title} description={description} />
+    <div class="grid min-w-0 gap-5 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8">
+      <aside class="min-w-0 md:sticky md:top-4 md:self-start">
+        <SettingsNav active={active} />
+      </aside>
+      <section class="min-w-0">
+        <slot />
+      </section>
+    </div>
+  </PageBody>
+</BaseLayout>

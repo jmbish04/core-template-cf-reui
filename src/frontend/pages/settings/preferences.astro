@@ -1,0 +1,21 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: section rail beside the preferences Frame.
+ * mobile (390px): the rail becomes a line-tab scroller above the Frame; each
+ * settings row stacks its control under the label.
+ *
+ * @fileoverview /settings/preferences — the `preferences` D1 row, one
+ * settings-3 field row per column, read and written through
+ * `GET|PUT /api/settings/preferences`.
+ */
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { PreferencesForm } from "@/components/settings/preferences-form";
+---
+
+<SettingsLayout
+  title="Preferences"
+  description="Appearance, locale and accessibility for this workspace."
+>
+  <PreferencesForm client:load />
+</SettingsLayout>

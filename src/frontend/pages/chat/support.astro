@@ -1,0 +1,31 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: documentation column with the assistant docked to the right edge at 26rem.
+ * mobile (390px): the panel takes the whole surface when open and the docs column is
+ *   hidden — two 390px columns would leave neither readable; Hide brings the docs back.
+ * vehicle: not targeted — this is reference reading.
+ *
+ * `/chat/support` — ReUI ai-chat-12. The assistant answers only from this
+ * template's own documentation (`/api/docs/schema` plus the drive's text files)
+ * and opens a real `/api/tasks` ticket when the docs do not cover the question.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { AiChat } from "@/components/blocks/ai-chat-12/components/ai-chat";
+
+const threadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Docs support"
+  description="A documentation assistant that answers only from the knowledge base, shows which articles it read, and opens a ticket when the docs do not cover the question."
+>
+  <PageBody>
+    <PageToolbar
+      title="Docs support"
+      description="Answers only from the articles it retrieved, and says so when there are none."
+    />
+    <AiChat client:load initialThreadId={threadId} />
+  </PageBody>
+</BaseLayout>

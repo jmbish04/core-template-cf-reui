@@ -1,0 +1,31 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: page toolbar, then all four status columns side by side.
+ * mobile (390px): the board scrolls horizontally in its own scroll area, one
+ *   17.5rem column at a time; cards keep their owner, due date and ring.
+ * vehicle: same as mobile; drag is a deliberate long press, never a glance task.
+ *
+ * @fileoverview /tasks/board — the kanban board.
+ *
+ * `<TaskBoard />` reads `GET /api/tasks/board` and PATCHes
+ * `/api/tasks/{id}` with the new `status` and `position` on every drop.
+ */
+
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { TaskBoard } from "@/components/tasks/task-board";
+---
+
+<BaseLayout
+  title="Task board"
+  description="Tasks grouped into the four workflow columns, drag to change status."
+>
+  <PageBody>
+    <PageToolbar
+      title="Board"
+      description="Drag a card to move it between columns. The move is saved as soon as you drop it."
+    />
+    <TaskBoard client:load />
+  </PageBody>
+</BaseLayout>

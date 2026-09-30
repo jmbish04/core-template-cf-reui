@@ -1,0 +1,30 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: 16rem folder rail (tree + storage meter) beside the browse panel;
+ * the list view shows every column.
+ * mobile (390px): the rail moves into a sheet behind the menu button, the list
+ * keeps Name and its actions only, and the card grid stays available.
+ *
+ * @fileoverview /files — the Drive Explorer (ReUI block `solution-files-1`)
+ * over the real `/api/files` backend: the tree lives in D1, the bytes in the
+ * R2_FILES_BUCKET R2 bucket.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { DriveExplorer } from "@/components/files/drive-explorer";
+---
+
+<BaseLayout title="Files" description="Folder and file explorer backed by D1 and R2.">
+  <PageBody>
+    <PageToolbar
+      title="Files"
+      description="Folders and files from the files table; every upload is stored as an R2 object and every delete cascades through both."
+    />
+    <div class="min-h-0 flex-1">
+      <div class="h-[calc(100dvh-13rem)] min-h-[34rem]">
+        <DriveExplorer client:load />
+      </div>
+    </div>
+  </PageBody>
+</BaseLayout>

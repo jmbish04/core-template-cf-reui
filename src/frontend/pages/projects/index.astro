@@ -1,0 +1,27 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: three project cards per row under a single filter bar.
+ * mobile (390px): one card per row; the filter bar wraps and the search box
+ *   takes the full width.
+ * vehicle: not targeted.
+ *
+ * Projects — the project grid over `/api/projects`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { ProjectList } from "@/components/projects/project-list";
+---
+
+<BaseLayout
+  title="Projects"
+  description="Every project, with search, a status filter, star toggles and task counts."
+>
+  <PageBody>
+    <PageToolbar
+      title="Projects"
+      description="Every project in the workspace. Star the ones you are living in."
+    />
+    <ProjectList client:load />
+  </PageBody>
+</BaseLayout>

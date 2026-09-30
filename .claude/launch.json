@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "astro-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "CF_REMOTE_BINDINGS=0 exec pnpm exec astro dev --port 4391"
+      ],
+      "port": 4391
+    },
+    {
+      "name": "worker-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "exec",
+        "wrangler",
+        "dev",
+        "--port",
+        "8799"
+      ],
+      "port": 8799
+    }
+  ]
+}

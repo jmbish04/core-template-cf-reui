@@ -1,0 +1,33 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: page toolbar, then the full tree grid Frame; every column visible.
+ * mobile (390px): the toolbar's filters wrap to their own row and the grid
+ *   scrolls horizontally inside its own scroll area — the Task column keeps the
+ *   expand toggle on screen, which is the one control the tree cannot lose.
+ * vehicle: same as mobile; reading-only use.
+ *
+ * @fileoverview /tasks — the task tree grid.
+ *
+ * `<TaskTreeGrid />` reads `GET /api/tasks?limit=200`, nests the flat rows on
+ * `parentId`, and rolls subtask counts, progress and overdue counts up the tree.
+ * Row actions PATCH and DELETE against `/api/tasks/{id}`.
+ */
+
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { TaskTreeGrid } from "@/components/tasks/task-tree-grid";
+---
+
+<BaseLayout
+  title="Tasks"
+  description="Every task nested on its parent, with rolled-up progress and overdue counts."
+>
+  <PageBody>
+    <PageToolbar
+      title="Tasks"
+      description="Expand a parent to see what it contains. Progress and overdue counts roll up from everything underneath."
+    />
+    <TaskTreeGrid client:load />
+  </PageBody>
+</BaseLayout>

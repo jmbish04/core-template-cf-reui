@@ -1,0 +1,19 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: maintenance rows with right-aligned buttons, health list below.
+ * mobile (390px): buttons go full width under their description.
+ *
+ * @fileoverview /settings/advanced — seeding, clearing and the health readout.
+ * Every destructive action confirms first.
+ */
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { AdvancedPanel } from "@/components/settings/advanced-panel";
+---
+
+<SettingsLayout
+  title="Advanced"
+  description="Maintenance actions and the last recorded health run."
+>
+  <AdvancedPanel client:load />
+</SettingsLayout>

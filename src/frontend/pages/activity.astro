@@ -1,0 +1,28 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: the timeline's date rail sits in its own left column.
+ * mobile (390px): the date moves inline above each entry (the block's own
+ *   breakpoint behaviour); filters wrap to their own row.
+ * vehicle: readable, no interaction required.
+ *
+ * Activity — the append-only audit trail from `/api/activity`, rendered on the
+ * ReUI Pro `timeline-5` grammar.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { ActivityFeed } from "@/components/activity/activity-feed";
+---
+
+<BaseLayout
+  title="Activity"
+  description="Append-only audit trail of every action taken across projects, tasks and notes."
+>
+  <PageBody>
+    <PageToolbar
+      title="Activity"
+      description="Everything that has happened, newest first. Search it or filter by entity type."
+    />
+    <ActivityFeed client:load />
+  </PageBody>
+</BaseLayout>

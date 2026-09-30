@@ -1,0 +1,31 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: the run's draft fills the page with a 26rem agent panel docked beside it.
+ * mobile (390px): the two stack — draft first, panel under it, both full width.
+ * vehicle: not targeted — a run is watchable, but editing a plan expects a keyboard.
+ *
+ * /chat/agentic — ReUI ai-chat-6. Every plan step is its own /api/chat/stream
+ * turn; the ticket is POST /api/tasks and the run's outputs are appended to the
+ * thread's chat_documents row. Mounted client:only="react" because the canvas
+ * is PlateJS, which touches browser-only DOM APIs.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { ChatAgentic } from "@/components/blocks/ai-chat-6/page";
+
+const initialThreadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Agentic run"
+  description="Confirm what the agent may read, edit the plan it proposes, then watch it run each step as a real turn."
+>
+  <PageBody className="min-h-0">
+    <PageToolbar
+      title="Agentic run"
+      description="The model writes the plan, you edit it, and each step runs as its own turn whose output feeds the next."
+    />
+    <ChatAgentic client:only="react" initialThreadId={initialThreadId} />
+  </PageBody>
+</BaseLayout>

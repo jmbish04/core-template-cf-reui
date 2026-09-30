@@ -1,0 +1,32 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: the PlateJS draft fills the page with a 384px assistant docked to its right.
+ * mobile (390px): the draft fills the page; a floating button opens the assistant as a Sheet.
+ * vehicle: not targeted — editing expects a keyboard.
+ *
+ * `/chat/docked` — ReUI Pro block `ai-chat-2`. The document is the thread's
+ * real `chat_documents` row; "Insert into draft" appends a reply to it.
+ *
+ * Mounted `client:only="react"`: PlateJS depends on browser-only DOM APIs and
+ * must never run during Astro SSR.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { DockedChat } from "@/components/blocks/ai-chat-2/components/ai-chat";
+
+const initialThreadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Docked draft"
+  description="A live PlateJS document with the assistant docked beside it. Insert any reply straight into the draft."
+>
+  <PageBody>
+    <PageToolbar
+      title="Docked draft"
+      description="One editable document per conversation. Ask for a section, then insert the reply into the draft."
+    />
+    <DockedChat client:only="react" initialThreadId={initialThreadId} />
+  </PageBody>
+</BaseLayout>

@@ -1,0 +1,46 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: three-column card grid over the twelve chat surfaces.
+ * mobile (390px): one column, full-width cards; every card is a single tap target.
+ * vehicle: not targeted — it is a navigation index, readable but not designed for glances.
+ *
+ * `/chat` — the gallery. Renders `chatSurfaces` from `@/lib/config`, which is
+ * the same list the sidebar builds its Chat section from, so the page cannot
+ * drift from the nav. Static: no island, no client JavaScript.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { chatSurfaces } from "@/lib/config";
+---
+
+<BaseLayout
+  title="AI chat surfaces"
+  description="Twelve ReUI Pro ai-chat blocks, each wired to the same D1 thread store and the core-guardian service binding."
+>
+  <PageBody>
+    <PageToolbar
+      title="AI chat surfaces"
+      description="Twelve ReUI Pro blocks over one backend: D1 threads, streaming SSE, and every inference routed through core-guardian."
+    />
+
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {
+        chatSurfaces.map((surface) => (
+          <a
+            href={surface.href}
+            class="border-border/80 bg-card hover:border-border focus-visible:ring-ring/50 flex min-w-0 flex-col gap-2 rounded-lg border p-4 shadow-xs transition-colors outline-none focus-visible:ring-3"
+          >
+            <span class="flex min-w-0 items-center gap-2">
+              <span class="min-w-0 flex-1 truncate text-sm font-medium">{surface.label}</span>
+              <span class="border-border text-muted-foreground shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[11px]">
+                {surface.block}
+              </span>
+            </span>
+            <span class="text-muted-foreground text-sm">{surface.description}</span>
+          </a>
+        ))
+      }
+    </div>
+  </PageBody>
+</BaseLayout>

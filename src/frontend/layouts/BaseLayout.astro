@@ -1,0 +1,37 @@
+---
+/**
+ * BaseLayout — every page renders inside the ReUI app shell (block app-shell-2,
+ * adapted in components/blocks/app-shell-2). Dark is the default; the header
+ * toggle stores an explicit "light" choice. Sidebar collapse persists in the
+ * `sidebar_state` cookie and is applied server-side, so there is no flash.
+ */
+import HeadSEO from "@/components/HeadSEO.astro";
+import { AppShell } from "@/components/blocks/app-shell-2/components/app-shell";
+
+interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const { title, description, ogImage } = Astro.props;
+const activePath = Astro.url.pathname;
+const defaultOpen = Astro.cookies.get("sidebar_state")?.value !== "false";
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <HeadSEO title={title} description={description} ogImage={ogImage} />
+    <script is:inline>
+      try {
+        if (localStorage.getItem("theme") === "light") document.documentElement.classList.remove("dark");
+      } catch {}
+    </script>
+  </head>
+  <body class="overscroll-none antialiased">
+    <AppShell client:load activePath={activePath} defaultOpen={defaultOpen}>
+      <slot />
+    </AppShell>
+  </body>
+</html>

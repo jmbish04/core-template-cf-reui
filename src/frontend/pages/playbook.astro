@@ -1,0 +1,281 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: toolbar, then one Frame per topic; paired snippets and do/don't lists sit 2-up.
+ * mobile (390px): every 2-up grid goes 1-up; code blocks scroll inside their own Frame panel, never the page.
+ * vehicle: same as mobile; reading-only page with one toolbar link.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from "@/components/reui/frame";
+import { CodeBlock } from "@/components/ui/code-block";
+
+/**
+ * Developer Playbook — the documentation hub for this template.
+ *
+ * Every code example is rendered through the React `CodeBlock` island
+ * (`client:visible`) so snippets get real Shiki syntax highlighting,
+ * filenames, language badges, and copy buttons. Content is kept accurate to
+ * THIS project: Astro SSR + Hono + D1/Drizzle + core-guardian for AI,
+ * all on a single Worker.
+ */
+
+const guardianClientExample = `/** src/backend/ai/guardian/ — the ONLY inference path in this Worker. */
+export async function guardianChat(env: Env, { messages, task, useCase = "chat", importance = "low" }) {
+  const guardian = env.CORE_GUARDIAN as unknown as {
+    run(payload: unknown): Promise<{ status: number; body: unknown } | { stream: Response }>;
+  };
+  const result = await guardian.run({
+    project: "core-template-cfw-assets-astro-shadcn",
+    importance,
+    use_case: useCase, // the router picks provider + model inside the budget
+    task,
+    input: { messages },
+  });
+  if ("stream" in result) throw new GuardianError(500, "unexpected stream");
+  if (result.status !== 200) throw new GuardianError(result.status, result.body); // 422 budget, 429 breaker
+
+  const outer = result.body as any;
+  return {
+    text: outer.body.choices[0].message.content,
+    provider: outer.provider,
+    model: outer.model,
+    costUsd: outer.cost_usd,
+  };
+}`;
+
+const chatRouteExample = `// POST /api/chat/stream  { threadId?, message, systemPrompt?, importance?, complexity? }
+// Server-Sent Events, in order:
+//   meta      { threadId }                       — before anything is generated
+//   routed    { provider, model, requestUuid }   — from the router's response HEADERS,
+//                                                  so the UI names the real model early
+//   reasoning { text }                           — the model THINKING, on a reasoning
+//                                                  model. Never part of the answer.
+//   delta     { text }                           — the answer, chunk by chunk
+//   usage     { promptTokens, completionTokens, totalTokens }
+//   title     { threadId, title }                — the model titles a NEW thread on its
+//                                                  first reply; no client-side truncation
+//   done      { threadId, message, latencyMs, usage }
+//   error     { error, status }                  — 422 no model in budget,
+//                                                  429 rate-limited, 502 unavailable
+//
+// The server accumulates the deltas and writes ONE chat_messages row when the
+// stream finishes, with the provider and model that actually served it. Nothing
+// about the conversation lives in the browser.`;
+
+const chatClientExample = `// Every /chat/* surface binds to the same hook — src/frontend/lib/chat.ts
+import { useChatThread } from "@/lib/chat";
+
+const chat = useChatThread({
+  threadId,                       // resume from ?t=<id>, or omit to start one
+  systemPrompt: "Answer only from the knowledge base.",
+  onTitle: (id, title) => renameInRail(id, title),
+});
+
+// chat.messages   persisted turns from D1
+// chat.pending    the answer streaming in right now
+// chat.reasoning  the model's thinking — render it folded, never appended
+// chat.routed     { provider, model } that actually served the turn
+// chat.usage      real token counts   chat.latencyMs  measured round trip
+// chat.error      plain language for the three real router failures
+// chat.send(text) / chat.stop()`;
+
+const honoRouteExample = `import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+
+export const tasksRouter = new OpenAPIHono<{ Bindings: Env }>();
+
+const TaskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.enum(["todo", "doing", "done"]),
+});
+
+tasksRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/",
+    operationId: "listTasks",
+    responses: {
+      200: {
+        description: "All tasks for the workspace",
+        content: { "application/json": { schema: z.array(TaskSchema) } },
+      },
+    },
+  }),
+  async (c) => {
+    const rows = await c.env.DB.prepare("SELECT * FROM tasks").all();
+    return c.json(rows.results);
+  },
+);`;
+
+const drizzleSchemaExample = `import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-zod";
+
+/** Tasks live under db/schemas/tasks/tasks.ts (one table per file). */
+export const tasks = sqliteTable("tasks", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  status: text("status").notNull().default("todo"),
+  projectId: text("project_id"),
+  createdAt: integer("created_at").notNull(),
+});
+
+// Drizzle-Zod gives the API layer a validated insert schema for free.
+export const insertTaskSchema = createInsertSchema(tasks);`;
+
+const wranglerExample = `{
+  "name": "core-template-cfw-assets-astro-shadcn",
+  "main": "dist/_worker.js/index.js",
+  "compatibility_date": "2026-05-25",
+  "assets": { "directory": "dist", "binding": "ASSETS" },
+  "d1_databases": [{ "binding": "DB", "database_name": "app" }],
+  // All inference goes to core-guardian over a service binding: metered,
+  // budget-capped, circuit-broken. No "ai" binding, no Durable Objects.
+  "services": [
+    { "binding": "CORE_GUARDIAN", "service": "core-guardian", "entrypoint": "GuardianRpc", "remote": true }
+  ]
+}`;
+
+const workerEntryExample = `/** True for paths the Hono API owns (REST + OpenAPI doc surfaces). */
+function isApiPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/") ||
+    pathname === "/openapi.json" ||
+    pathname === "/swagger" ||
+    pathname === "/scalar"
+  );
+}
+
+async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+  const url = new URL(request.url);
+
+  if (isApiPath(url.pathname)) {                          // 1. Hono REST + docs
+    return honoApp.fetch(request, env, ctx);
+  }
+  return handle(astroManifest, astroApp, request, env, ctx); // 2. Astro SSR
+}`;
+---
+
+<BaseLayout
+  title="Developer Playbook"
+  description="Production blueprint for edge apps with Astro SSR, Hono, D1/Drizzle and core-guardian AI on a single Worker"
+>
+  <PageBody>
+    <PageToolbar
+      title="Developer playbook"
+      description="A production blueprint for this template: Astro SSR and React islands on the front, Hono with D1 and Drizzle for the API, all served from one Worker."
+    >
+      <a href="/scalar" class="bg-muted text-foreground hover:bg-muted/70 inline-flex h-8 items-center rounded-md px-3 text-sm font-medium">API reference</a>
+    </PageToolbar>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>Request architecture</FrameTitle>
+        <FrameDescription>
+          One Worker handles two concerns in priority order. src/_worker.ts routes by path before falling through to Astro SSR, which falls back to static assets.
+        </FrameDescription>
+      </FrameHeader>
+      <div class="grid gap-1 sm:grid-cols-2">
+        <FramePanel>
+          <p class="text-foreground mb-1 font-mono text-xs">/api/* and doc URLs</p>
+          <p class="text-muted-foreground text-sm">REST and OpenAPI served by the Hono app.</p>
+        </FramePanel>
+        <FramePanel>
+          <p class="text-foreground mb-1 font-mono text-xs">everything else</p>
+          <p class="text-muted-foreground text-sm">Astro SSR, with static-asset fall-through.</p>
+        </FramePanel>
+      </div>
+      <FramePanel className="p-0">
+        <CodeBlock client:visible className="rounded-none bg-transparent ring-0" filename="src/_worker.ts" language="ts" code={workerEntryExample} showLineNumbers />
+      </FramePanel>
+    </Frame>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>AI through core-guardian</FrameTitle>
+        <FrameDescription>
+          Every model call goes through the core-guardian Worker over a service binding, never a provider SDK or env.AI. The router picks the provider and model per request inside the project budget, meters the spend, and trips a circuit breaker on failure. Chat history lives in D1 (chat_threads, chat_messages); there are no Durable Objects.
+        </FrameDescription>
+      </FrameHeader>
+      <FramePanel className="p-0">
+        <CodeBlock
+          client:visible
+          className="rounded-none bg-transparent ring-0"
+          files={[
+            { filename: "src/backend/ai/guardian/", language: "ts", code: guardianClientExample },
+            { filename: "src/backend/api/routes/chat.ts", language: "ts", code: chatRouteExample },
+            { filename: "ai-chat.tsx", language: "ts", code: chatClientExample },
+          ]}
+          showLineNumbers
+        />
+      </FramePanel>
+      <FramePanel className="bg-warning/10 border-warning/20">
+        <p class="text-warning-foreground text-sm">
+          <strong>Health.</strong> /health calls the no-spend <code>CORE_GUARDIAN.useCases()</code> RPC and fails the verdict when it throws, so a broken binding shows up red instead of as a chat that silently errors.
+        </p>
+      </FramePanel>
+    </Frame>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>API and data layer</FrameTitle>
+        <FrameDescription>
+          Routes are Zod-validated OpenAPIHono handlers; the schema is emitted at /openapi.json. Tables live one per file under db/schemas/&lt;domain&gt;/ with Drizzle-Zod bridging the two.
+        </FrameDescription>
+      </FrameHeader>
+      <FramePanel className="p-0">
+        <CodeBlock
+          client:visible
+          className="rounded-none bg-transparent ring-0"
+          files={[
+            { filename: "src/backend/api/routes/tasks.ts", language: "ts", code: honoRouteExample },
+            { filename: "src/backend/db/schemas/tasks/tasks.ts", language: "ts", code: drizzleSchemaExample },
+          ]}
+          showLineNumbers
+        />
+      </FramePanel>
+    </Frame>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>Configuration</FrameTitle>
+        <FrameDescription>
+          Bindings are declared in wrangler.jsonc. The AI surface is one service binding; the Worker holds no provider keys.
+        </FrameDescription>
+      </FrameHeader>
+      <FramePanel className="p-0">
+        <CodeBlock client:visible className="rounded-none bg-transparent ring-0" filename="wrangler.jsonc" language="json" code={wranglerExample} showLineNumbers />
+      </FramePanel>
+    </Frame>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>Best practices</FrameTitle>
+      </FrameHeader>
+      <div class="grid grid-cols-1 gap-1 md:grid-cols-2">
+        <FramePanel>
+          <p class="text-foreground mb-2 text-sm font-semibold">Do</p>
+          <ul class="text-muted-foreground space-y-2 text-sm">
+            <li>Route every model call through <code class="text-primary">guardianChat()</code>.</li>
+            <li>Validate every endpoint with Zod and surface it in OpenAPI.</li>
+            <li>Map router 422/429 to plain-language errors with a retry.</li>
+            <li>Keep tables one per file under <code class="text-primary">db/schemas/&lt;domain&gt;/</code>.</li>
+            <li>Use path aliases (<code class="text-primary">@/...</code>), never relative imports.</li>
+            <li>Build screens from ReUI blocks (surface frame), installed with <code class="text-primary">scripts/reui-add.sh</code>.</li>
+          </ul>
+        </FramePanel>
+        <FramePanel>
+          <p class="text-foreground mb-2 text-sm font-semibold">Don't</p>
+          <ul class="text-muted-foreground space-y-2 text-sm">
+            <li>Don't call a provider SDK, <code class="text-primary">env.AI</code>, or a provider URL directly.</li>
+            <li>Don't leak router internals (budgets, keys) into API errors.</li>
+            <li>Don't hand-roll tables, filters or charts ReUI already ships.</li>
+            <li>Don't store secrets in code; use Secret Store bindings.</li>
+            <li>Don't use browser <code class="text-primary">alert/confirm</code>; use dialogs.</li>
+            <li>Don't ship mock data; bind to real <code class="text-primary">/api</code> endpoints.</li>
+          </ul>
+        </FramePanel>
+      </div>
+    </Frame>
+  </PageBody>
+</BaseLayout>

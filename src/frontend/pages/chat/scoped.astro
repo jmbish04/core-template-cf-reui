@@ -1,0 +1,30 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: 264px conversation rail beside the framed ask box; file toggles wrap in its header.
+ * mobile (390px): the rail is hidden and the starters stack; the scope toggles stay,
+ *   because a chat you cannot re-scope would answer from the wrong files.
+ * vehicle: not targeted — choosing sources expects a pointer or a keyboard.
+ *
+ * `/chat/scoped` — ReUI ai-chat-10. The ask box header toggles which drive files
+ * the chat may read; a file switched off is named to the model as a gap.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { AiChat } from "@/components/blocks/ai-chat-10/components/ai-chat";
+
+const threadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Structured chat"
+  description="Source-grounded answers as sortable tables, highlighted code and comparison bars. A file switched off is named as a gap rather than guessed around."
+>
+  <PageBody>
+    <PageToolbar
+      title="Structured"
+      description="Choose which workspace files the chat may read. What it was not given, it names."
+    />
+    <AiChat client:load initialThreadId={threadId} />
+  </PageBody>
+</BaseLayout>

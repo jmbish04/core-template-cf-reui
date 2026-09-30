@@ -1,0 +1,27 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: full-width time series above a 2x2 grid of ranked breakdowns.
+ * mobile (390px): one chart per row.
+ * vehicle: not targeted — the charts expect a pointer for tooltips.
+ *
+ * Analytics — the deeper cut of `/api/dashboard/*`, plus a per-project
+ * breakdown derived from the `taskCount` column on `/api/projects`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { AnalyticsView } from "@/components/dashboard/analytics-view";
+---
+
+<BaseLayout
+  title="Analytics"
+  description="Task flow over time, throughput, priority and lifecycle breakdowns, and the busiest projects."
+>
+  <PageBody>
+    <PageToolbar
+      title="Analytics"
+      description="How work has moved over the selected window, broken down every way the API supports."
+    />
+    <AnalyticsView client:load />
+  </PageBody>
+</BaseLayout>

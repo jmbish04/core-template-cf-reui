@@ -1,0 +1,27 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: three-across area grid under a five-tile metric row.
+ * mobile (390px): metric tiles fall to two columns, area cards to one.
+ * vehicle: not targeted.
+ *
+ * Overview — what this template is, the live metric row, and a link grid built
+ * from `navGroups` / `chatSurfaces` / `devLinks` in `@/lib/config`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { OverviewView } from "@/components/overview/overview-view";
+---
+
+<BaseLayout
+  title="Overview"
+  description="Cloudflare Worker template on Astro, React and ReUI Pro blocks, with every page reading real rows from D1 through the Hono API."
+>
+  <PageBody>
+    <PageToolbar
+      title="Overview"
+      description="Where everything lives, and how the template is doing right now."
+    />
+    <OverviewView client:load />
+  </PageBody>
+</BaseLayout>

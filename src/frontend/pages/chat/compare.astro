@@ -1,0 +1,35 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: two resizable panes with the mirrored scoreboard beneath and one prompt bar.
+ * mobile (390px): the panes become tabs (both stay mounted, so the hidden side keeps streaming).
+ * vehicle: not targeted — two transcripts at once assume a large screen.
+ *
+ * /chat/compare — ReUI ai-chat-7. One prompt, two routing profiles, two real
+ * threads and two real SSE streams. Every scoreboard number is measured: the
+ * routed model, latencyMs and usage from the stream, costUsd from the
+ * persisted reply.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { ChatCompare } from "@/components/blocks/ai-chat-7/page";
+
+// A comparison is TWO threads, so it needs two keys — `?a` and `?b`. Read
+// server-side like every other surface's `?t`, so a resumed comparison paints
+// with the right threads instead of flashing two empty panes.
+const initialLeft = Astro.url.searchParams.get("a") ?? undefined;
+const initialRight = Astro.url.searchParams.get("b") ?? undefined;
+---
+
+<BaseLayout
+  title="Compare"
+  description="Run one prompt through the Fast and Deep routing profiles at the same time and compare what each was served."
+>
+  <PageBody className="min-h-0">
+    <PageToolbar
+      title="Compare"
+      description="Two profiles, two threads, one prompt. The scoreboard reports the model each side was actually routed to."
+    />
+    <ChatCompare client:load initialLeft={initialLeft} initialRight={initialRight} />
+  </PageBody>
+</BaseLayout>

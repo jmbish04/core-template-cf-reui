@@ -1,0 +1,20 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: one row per category with its four channel switches in a 2-up grid.
+ * mobile (390px): switches stack one per line under the category copy.
+ *
+ * @fileoverview /settings/notifications — the channel × category matrix from
+ * `notification_prefs`, saved through the bulk
+ * `PUT /api/settings/notification-prefs`.
+ */
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { NotificationPrefsForm } from "@/components/settings/notification-prefs-form";
+---
+
+<SettingsLayout
+  title="Notifications"
+  description="Choose which channels carry which events."
+>
+  <NotificationPrefsForm client:load />
+</SettingsLayout>

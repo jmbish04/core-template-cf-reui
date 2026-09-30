@@ -1,0 +1,30 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: 256px thread rail beside the streaming transcript, composer pinned under it.
+ * mobile (390px): the rail moves into a left Sheet; the transcript fills the page.
+ * vehicle: not targeted — reading works, but the composer expects a keyboard.
+ *
+ * `/chat/copilot` — ReUI Pro block `ai-chat-1`, streaming through
+ * `POST /api/chat/stream` to core-guardian. `?t=<id>` is read here, server
+ * side, so a reload resumes the same thread with no client-side flash.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { CopilotChat } from "@/components/blocks/ai-chat-1/components/ai-chat";
+
+const initialThreadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Copilot"
+  description="Full-page AI copilot: a streaming transcript with a rail of recent conversations, backed by D1 and core-guardian."
+>
+  <PageBody>
+    <PageToolbar
+      title="Copilot"
+      description="Ask about this workspace. Conversations are stored in D1, so a reload resumes where you left off."
+    />
+    <CopilotChat client:load initialThreadId={initialThreadId} />
+  </PageBody>
+</BaseLayout>

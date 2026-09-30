@@ -1,0 +1,7 @@
+[mcp_servers.cloudflare-docs]
+command = "npx"
+args = [
+    "-y",
+    "mcp-remote",
+    "https://docs.mcp.cloudflare.com/mcp",
+]

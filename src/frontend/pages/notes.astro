@@ -1,0 +1,27 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: two Frames — 360px note index (search + facet popover) beside the inline PlateJS editor.
+ * mobile (390px): the index fills the page; tapping a note opens the editor as a full-width Sheet.
+ * vehicle: not targeted — read-only use of the index works; editing expects a keyboard.
+ *
+ * Team notes — shared notes from `/api/team-notes`. Mounted `client:only="react"`
+ * because PlateJS depends on browser-only DOM APIs and must never run in SSR.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { NotesWorkspace } from "@/components/notes/NotesWorkspace";
+---
+
+<BaseLayout
+  title="Team Notes"
+  description="Shared, pinnable notes scoped to projects. Search, filter, create, edit, and pin the notes your team needs at hand."
+>
+  <PageBody>
+    <PageToolbar
+      title="Notes"
+      description="Shared notes for the team. Pin the important ones and link them to a project."
+    />
+    <NotesWorkspace client:only="react" />
+  </PageBody>
+</BaseLayout>

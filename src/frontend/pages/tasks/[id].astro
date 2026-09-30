@@ -1,0 +1,34 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: breadcrumbs, the task Frame with status/priority/assignee in three
+ *   columns, then the sub-resource tabs Frame beneath.
+ * mobile (390px): the three control fields stack; tab triggers stay on one row.
+ * vehicle: same as mobile; reading and status changes only.
+ *
+ * @fileoverview /tasks/[id] — task detail.
+ *
+ * `<TaskDetail />` reads `GET /api/tasks/{id}` and
+ * `GET /api/tasks/{id}/ancestors` (breadcrumbs), PATCHes the task's own fields,
+ * and hosts the comments, subtasks and attachments panels, each of which owns
+ * its `/api/tasks/{id}/…` collection.
+ *
+ * SSR: `output: "server"`, so the dynamic segment needs no `getStaticPaths`.
+ */
+
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody } from "@/components/blocks/app-shell-2/components/page-shell";
+import { TaskDetail } from "@/components/tasks/task-detail";
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect("/tasks");
+}
+---
+
+<BaseLayout title="Task" description="Task detail, checklist, comments and attachments.">
+  <PageBody>
+    <TaskDetail client:load taskId={id} />
+  </PageBody>
+</BaseLayout>

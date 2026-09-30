@@ -1,0 +1,107 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: toolbar, then Frames for stack (3-column rows), quickstart code, and a 2-up API reference link grid.
+ * mobile (390px): stack rows collapse to stacked label/value; API links go 1-up; code blocks wrap inside their Frame, no page scroll.
+ * vehicle: same as mobile; each API link is a full-width tap target.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from "@/components/reui/frame";
+import { CodeBlock } from "@/components/ui/code-block";
+import { ArrowRightIcon } from "lucide-react";
+
+/**
+ * Documentation home (`/docs`).
+ *
+ * NOTE: `src/_worker.ts` `isApiPath()` has in the past treated the exact path
+ * `/docs` as Hono-owned; if this page 404s, check that guard first.
+ */
+
+const stackRows: { area: string; tech: string; note: string }[] = [
+  { area: "Runtime", tech: "Cloudflare Workers", note: "One Worker serves SSR pages, the API, and static assets" },
+  { area: "Frontend", tech: "Astro + React islands", note: "SSR pages, interactive islands, ReUI on Base UI" },
+  { area: "API", tech: "Hono + zod-openapi", note: "Zod-validated routes, OpenAPI 3.1 at /openapi.json" },
+  { area: "Database", tech: "D1 + Drizzle ORM", note: "One table per file under db/schemas/<domain>/" },
+  { area: "AI", tech: "Workers AI", note: "Dashboard insights and AI chat" },
+];
+
+const apiSurfaces: { href: string; label: string; desc: string }[] = [
+  { href: "/openapi.json", label: "openapi.json", desc: "The raw OpenAPI 3.1 document for the whole API." },
+  { href: "/scalar", label: "Scalar", desc: "Interactive, modern API reference." },
+  { href: "/swagger", label: "Swagger UI", desc: "Classic try-it-out request explorer." },
+  { href: "/health", label: "/health", desc: "Structured health check for the Worker and its bindings." },
+];
+
+const quickstart = `# Install and run the dev server
+pnpm install
+pnpm dev
+
+# Apply local D1 migrations (generates + applies)
+pnpm migrate:local
+
+# Build the Worker bundle (Astro + adapter)
+pnpm build`;
+---
+
+<BaseLayout
+  title="Documentation"
+  description="Stack overview, quickstart and the live API reference for this Astro + Hono + D1 template"
+>
+  <PageBody>
+    <PageToolbar
+      title="Documentation"
+      description="A single Cloudflare Worker that serves Astro SSR pages and a Zod-validated Hono API over D1. Start with the playbook or open the live API reference."
+    >
+      <a href="/playbook" class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 items-center rounded-md px-3 text-sm font-medium">
+        Developer playbook
+      </a>
+    </PageToolbar>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>The stack</FrameTitle>
+        <FrameDescription>Each row maps to a real layer of this codebase.</FrameDescription>
+      </FrameHeader>
+      <FramePanel className="p-0 divide-border/60 divide-y">
+        {stackRows.map((row) => (
+          <div class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[8rem_14rem_1fr] sm:items-center sm:gap-4">
+            <span class="text-muted-foreground text-xs font-medium">{row.area}</span>
+            <span class="text-foreground font-mono text-sm">{row.tech}</span>
+            <span class="text-muted-foreground text-sm">{row.note}</span>
+          </div>
+        ))}
+      </FramePanel>
+    </Frame>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>Quickstart</FrameTitle>
+        <FrameDescription>Node 22+ and pnpm are required.</FrameDescription>
+      </FrameHeader>
+      <FramePanel className="p-0">
+        <CodeBlock client:visible className="rounded-none bg-transparent ring-0" filename="terminal" language="bash" code={quickstart} />
+      </FramePanel>
+    </Frame>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>Live API reference</FrameTitle>
+        <FrameDescription>The OpenAPI document and both reference UIs are served directly by the Worker.</FrameDescription>
+      </FrameHeader>
+      <div class="grid grid-cols-1 gap-1 sm:grid-cols-2">
+        {apiSurfaces.map((surface) => (
+          <FramePanel className="p-0">
+            <a href={surface.href} class="group hover:bg-muted/60 flex h-full flex-col gap-1 px-4 py-3 transition-colors">
+              <span class="flex items-center justify-between gap-2">
+                <span class="text-foreground group-hover:text-primary font-mono text-sm">{surface.label}</span>
+                <ArrowRightIcon aria-hidden="true" className="text-muted-foreground group-hover:text-primary size-4" />
+              </span>
+              <span class="text-muted-foreground text-sm">{surface.desc}</span>
+            </a>
+          </FramePanel>
+        ))}
+      </div>
+    </Frame>
+  </PageBody>
+</BaseLayout>

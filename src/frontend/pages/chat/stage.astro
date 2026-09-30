@@ -1,0 +1,30 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: one centred column over the dot field; the thread rail lives in the header popover.
+ * mobile (390px): same column, full width; the run-details switch keeps its control and drops
+ *   its label, and the metric row folds from four columns to two.
+ * vehicle: not targeted — the answer receipts are dense reading.
+ *
+ * `/chat/stage` — ReUI ai-chat-11. Every reply is a framed receipt carrying the
+ * model, latency and token cost core-guardian actually reported for that turn.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { AiChat } from "@/components/blocks/ai-chat-11/components/ai-chat";
+
+const threadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Stage chat"
+  description="Asks stay bubbles; every reply is a framed receipt carrying the run behind it — model, latency and token cost in the chrome bar."
+>
+  <PageBody>
+    <PageToolbar
+      title="Stage"
+      description="The run is the point: which model answered, how long it took, what it cost."
+    />
+    <AiChat client:load initialThreadId={threadId} />
+  </PageBody>
+</BaseLayout>

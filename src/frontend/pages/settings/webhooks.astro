@@ -1,0 +1,19 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: one settings row per endpoint; secret and actions on the right.
+ * mobile (390px): actions wrap under the secret; the URL truncates.
+ *
+ * @fileoverview /settings/webhooks — CRUD over `/api/webhooks`, plus the real
+ * test fire at `POST /api/webhooks/{id}/test`.
+ */
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { WebhooksManager } from "@/components/settings/webhooks-manager";
+---
+
+<SettingsLayout
+  title="Webhooks"
+  description="Outbound endpoints that receive event deliveries."
+>
+  <WebhooksManager client:load />
+</SettingsLayout>

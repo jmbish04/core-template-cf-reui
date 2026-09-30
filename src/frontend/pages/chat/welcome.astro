@@ -1,0 +1,30 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: centred zero state — greeting over live workspace figures, Start and Resume rails, composer below.
+ * mobile (390px): the same single column; the rails stack and the composer keeps its attachment row.
+ * vehicle: not targeted — the composer expects a keyboard.
+ *
+ * `/chat/welcome` — ReUI Pro block `ai-chat-3`. The figures are
+ * `GET /api/dashboard/stats`, the Resume rows are `/api/threads`, and an
+ * attachment is a real file from the `/files` drive.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { WelcomeChat } from "@/components/blocks/ai-chat-3/components/ai-chat";
+
+const initialThreadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Welcome"
+  description="The zero state: a greeting over live workspace figures, prompt starters, recent conversations and an attachment-aware composer."
+>
+  <PageBody>
+    <PageToolbar
+      title="Welcome"
+      description="Where a conversation starts. The figures and the recent list are read from this workspace, not seeded."
+    />
+    <WelcomeChat client:load initialThreadId={initialThreadId} />
+  </PageBody>
+</BaseLayout>

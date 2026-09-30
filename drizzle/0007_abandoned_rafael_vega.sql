@@ -1,0 +1,1 @@
+ALTER TABLE `chat_threads` ADD `parent_thread_id` text;

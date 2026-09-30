@@ -1,0 +1,31 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: one centred 3xl column — receipt + transcript above, the framed composer below.
+ * mobile (390px): same column at full width; the source strip in the frame footer wraps to two rows.
+ * vehicle: not targeted — reading a receipt works, but choosing a scope expects a pointer.
+ *
+ * /chat/sources — ReUI ai-chat-5. The composer's frame footer is a live scope
+ * over this workspace's own collections (/api/files, /api/tasks, /api/projects,
+ * /api/team-notes, /api/inbox, /api/activity); a switched-on source is fetched
+ * and put into the turn's systemPrompt.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { ChatSources } from "@/components/blocks/ai-chat-5/page";
+
+const initialThreadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Scoped sources"
+  description="Choose which workspace collections the assistant may read, then ask. Every answer reports what it was given."
+>
+  <PageBody className="min-h-0">
+    <PageToolbar
+      title="Scoped sources"
+      description="Toggle a source on and it is fetched into the prompt; toggle it off and the assistant genuinely does not get it."
+    />
+    <ChatSources client:load initialThreadId={initialThreadId} />
+  </PageBody>
+</BaseLayout>

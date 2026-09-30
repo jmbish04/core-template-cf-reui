@@ -1,0 +1,29 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: folder rail | 440px message list | reading pane, side by side inside
+ * the global app shell.
+ * mobile (390px): one pane at a time — the list fills the module and opening a
+ * message replaces it, with a back control in the message header.
+ *
+ * @fileoverview /inbox — the two-pane mail module (ReUI block `app-shell-4`,
+ * adapted to sit inside the app shell rather than bring its own). Rows are real
+ * emails delivered into D1 by the Worker's Cloudflare Email Routing handler.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { InboxModule } from "@/components/inbox/inbox-module";
+---
+
+<BaseLayout
+  title="Inbox"
+  description="Mail received through Cloudflare Email Routing, stored in D1."
+>
+  <PageBody>
+    <PageToolbar
+      title="Inbox"
+      description="Every message here arrived at a routed address and was parsed into D1 by the Worker's email() handler."
+    />
+    <InboxModule client:load />
+  </PageBody>
+</BaseLayout>

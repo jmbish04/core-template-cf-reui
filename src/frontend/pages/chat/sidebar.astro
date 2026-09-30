@@ -1,0 +1,29 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: the activity page with a 384px assistant panel that pushes it aside rather than covering it.
+ * mobile (390px): the panel becomes a right Sheet over the page.
+ * vehicle: not targeted — selecting a sentence expects a pointer or touch.
+ *
+ * `/chat/sidebar` — ReUI Pro block `ai-chat-4`. Selecting a sentence in an
+ * answer quotes it into the composer and sends it as real context.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { SidebarChat } from "@/components/blocks/ai-chat-4/components/ai-chat";
+
+const initialThreadId = Astro.url.searchParams.get("t") ?? undefined;
+---
+
+<BaseLayout
+  title="Quoted reply"
+  description="A floating assistant panel that pushes the page aside. Select any sentence in an answer to reply to that line."
+>
+  <PageBody>
+    <PageToolbar
+      title="Quoted reply"
+      description="Select a sentence in an answer and the next message replies to that line, with the quote sent as context."
+    />
+    <SidebarChat client:load initialThreadId={initialThreadId} />
+  </PageBody>
+</BaseLayout>

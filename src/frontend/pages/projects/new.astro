@@ -1,0 +1,29 @@
+---
+/**
+ * RESPONSIVE STRATEGY
+ * desktop: the wizard is a centred 2xl column; step titles show beside the
+ *   indicators.
+ * mobile (390px): step titles collapse to numbered indicators and the
+ *   repeatable task rows stack to one field per line.
+ * vehicle: not targeted — this is a keyboard form.
+ *
+ * New project — ReUI Pro block `wizard-2`, posting to `/api/projects` and
+ * `/api/tasks`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PageBody, PageToolbar } from "@/components/blocks/app-shell-2/components/page-shell";
+import { ProjectWizard } from "@/components/blocks/wizard-2/components/project-wizard";
+---
+
+<BaseLayout
+  title="New project"
+  description="Create a project and its starter tasks in three steps."
+>
+  <PageBody>
+    <PageToolbar
+      title="New project"
+      description="Name it, set it up, review, and create. Starter tasks are created with it."
+    />
+    <ProjectWizard client:load />
+  </PageBody>
+</BaseLayout>
