@@ -25,6 +25,15 @@ When this repository is used through GitHub's **Use this template** flow, `.gith
 
 The workflow now rebases before pushing its setup commit so the initial template update does not fail on a non-fast-forward push.
 
+## New repositories: Colby Maestro provisions them
+
+Colby Maestro provisions a repository created from this template: it names the
+Worker after the repository, makes sure that Worker exists, links Workers Builds
+CI/CD to `main` (build `pnpm run build`, deploy `pnpm run deploy`), and keeps the
+agent briefings under `.agents/ecosystem/` synced. No repository secrets and no
+GitHub Actions are needed for any of that. Details:
+https://colby-maestro.hacolby.workers.dev/docs/cloudflare-automation
+
 ## Dependency Maintenance
 
 This template is pnpm-first. Keep `pnpm-lock.yaml` committed and in sync with `package.json`.

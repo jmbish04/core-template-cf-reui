@@ -24,26 +24,15 @@ export default defineConfig({
   },
   adapter: cloudflare({
     imageService: "cloudflare",
-    platformProxy: {
-      enabled: true,
-      // `ai` is remote-only. Set CF_REMOTE_BINDINGS=0 to run the UI locally when a
-      // remote preview session can't be created (AI calls then fail, pages still render).
-      remoteBindings: process.env.CF_REMOTE_BINDINGS !== "0",
-    },
-    routes: {
-      // Extend Cloudflare routes to include backend API routes
-      extend: {
-        include: ["/api/*"],
-        exclude: [],
-      },
-    },
-    // No Durable Objects in this Worker — every inference call routes through
-    // the CORE_GUARDIAN service binding instead. namedExports stays empty;
-    // repopulate it if a DO class is ever reintroduced.
-    workerEntryPoint: {
-      path: "src/_worker.ts",
-      namedExports: [],
-    },
+    // Without this the adapter also injects a `SESSION` KV binding into the
+    // built wrangler.json, which wrangler would auto-provision as a new namespace.
+    sessionKVBindingName: "SESSIONS",
+    // `ai` is remote-only. Set CF_REMOTE_BINDINGS=0 to run the UI locally when a
+    // remote preview session can't be created (AI calls then fail, pages still render).
+    remoteBindings: process.env.CF_REMOTE_BINDINGS !== "0",
+    // The Worker entry (Hono API + Astro SSR + email handler) is `main` in
+    // wrangler.jsonc -> src/_worker.ts. Adapter 13+ dropped `workerEntryPoint`
+    // and `routes`; `main` is the only way to set the entry now.
   }),
   integrations: [react()],
   vite: {
