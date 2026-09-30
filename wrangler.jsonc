@@ -159,7 +159,7 @@
   "kv_namespaces": [
     {
       "binding": "SESSIONS",
-      "id": "aba8552a49c64335ba4832d34ce9459d",
+      "id": "f47ec3ba218b4613b96258047f21250a",
       "remote": true,
     },
   ],
@@ -167,7 +167,7 @@
     {
       "binding": "DB",
       "database_name": "core-template-cf-reui",
-      "database_id": "d555f8ce-77c9-4c82-be80-de95b8d9c003",
+      "database_id": "c1452c1a-8dde-4e87-9258-f6a40f315e11",
       "migrations_dir": "drizzle",
     },
   ],
