@@ -124,10 +124,11 @@ export const tasks = sqliteTable("tasks", {
 export const insertTaskSchema = createInsertSchema(tasks);`;
 
 const wranglerExample = `{
-  "name": "core-template-cfw-assets-astro-shadcn",
-  "main": "dist/_worker.js/index.js",
+  "name": "core-template-cf-reui",
+  // Source, not build output: @astrojs/cloudflare 13+ resolves main at build time.
+  "main": "./src/_worker.ts",
   "compatibility_date": "2026-05-25",
-  "assets": { "directory": "dist", "binding": "ASSETS" },
+  "assets": { "directory": "./dist", "binding": "ASSETS" },
   "d1_databases": [{ "binding": "DB", "database_name": "app" }],
   // All inference goes to core-guardian over a service binding: metered,
   // budget-capped, circuit-broken. No "ai" binding, no Durable Objects.
@@ -152,7 +153,7 @@ async fetch(request: Request, env: Env, ctx: ExecutionContext) {
   if (isApiPath(url.pathname)) {                          // 1. Hono REST + docs
     return honoApp.fetch(request, env, ctx);
   }
-  return handle(astroManifest, astroApp, request, env, ctx); // 2. Astro SSR
+  return handle(request, env, ctx);                       // 2. Astro SSR
 }`;
 ---
 

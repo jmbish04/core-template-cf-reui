@@ -1,6 +1,6 @@
 {
   "name": "core-template-cf-reui",
-  "main": "dist/_worker.js/index.js",
+  "main": "./src/_worker.ts",
   "compatibility_date": "2026-05-25",
   "compatibility_flags": ["nodejs_compat"],
   "upload_source_maps": true,
