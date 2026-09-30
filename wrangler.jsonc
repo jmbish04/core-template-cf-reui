@@ -217,7 +217,7 @@
   "vectorize": [
     {
       "binding": "VECTORIZE_CAREER_MEMORY",
-      "index_name": "core-template-cf-reui-career-memory",
+      "index_name": "core-template-cf-reui",
       "remote": true,
     },
   ],
