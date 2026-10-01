@@ -18,7 +18,7 @@
  */
 
 import { GuardianConfigError } from "./errors";
-import type { GuardianEffort, GuardianRunOptions } from "./types";
+import type { GuardianEffort, GuardianRoutingOptions, GuardianRunOptions } from "./types";
 
 /**
  * Defaults applied to every run a caller does not override.
@@ -30,6 +30,13 @@ export const GUARDIAN_DEFAULTS = {
   useCase: "chat",
   importance: "low",
   complexity: undefined,
+  /**
+   * The embedding model `embed` uses. 384 dimensions: the smallest bge, and
+   * Vectorize bills by dimension, so start here and widen only on evidence.
+   */
+  embeddingModel: "@cf/baai/bge-small-en-v1.5",
+  /** bge's documented ceiling is 100 texts per call; `embed` batches to it. */
+  embeddingBatch: 100,
 } as const;
 
 /**
@@ -48,6 +55,8 @@ export const GUARDIAN_TASKS = {
   threadFollowups: "threads_followups",
   /** The dashboard's plain-language read of the current numbers. */
   dashboardInsights: "dashboard_insights",
+  /** Text embedded through `embed`. Sent as the Workers AI task description. */
+  embed: "embed",
 } as const;
 
 export type GuardianTask = (typeof GUARDIAN_TASKS)[keyof typeof GUARDIAN_TASKS];
@@ -119,22 +128,70 @@ export function guardianProject(env: Env): string {
   return project;
 }
 
-/** The shape `GuardianRpc.run` accepts. */
-export interface GuardianRunPayload {
+/** The routing fields `GuardianRpc.run` and `GuardianRpc.route` both accept. */
+interface GuardianRoutingPayload {
   project: string;
   importance: string;
   use_case: string;
   task?: string;
   complexity?: string;
+  reasoning?: string;
+  capabilities?: string[];
+  budgetRange?: { minUsd?: number; maxUsd?: number };
+  model?: string;
+  provider?: string;
+}
+
+/** The shape `GuardianRpc.run` accepts. */
+export interface GuardianRunPayload extends GuardianRoutingPayload {
   stream?: true;
-  input: { messages: GuardianRunOptions["messages"] };
+  input: { messages: GuardianRunOptions["messages"]; tools?: GuardianRunOptions["tools"] };
+}
+
+/** The shape `GuardianRpc.route` accepts. */
+export interface GuardianRoutePayload extends GuardianRoutingPayload {
+  input?: { messages: GuardianRunOptions["messages"] };
+}
+
+/**
+ * The routing half of every payload. Private: `buildRunPayload` and
+ * `buildRoutePayload` are the two doors, and they must agree, which is easiest
+ * when they share this.
+ */
+function routingFields(env: Env, options: GuardianRoutingOptions, tools: boolean): GuardianRoutingPayload {
+  const { task, useCase, importance, complexity, reasoning, budgetRange, model, provider } = options;
+
+  // Hoisted rather than written inline. `a ?? b ? c : d` parses as
+  // `(a ?? b) ? c : d`, which is what is wanted here but reads like the
+  // opposite — and this is the one function every model call passes through.
+  const resolvedComplexity = complexity ?? GUARDIAN_DEFAULTS.complexity;
+
+  // Sending tools without declaring the capability lets an `auto` route land
+  // on a model that cannot call one: the run ends after one turn with prose
+  // and no error to explain it. So the capability follows the tools here,
+  // where no caller can forget it.
+  const capabilities = new Set(options.capabilities ?? []);
+  if (tools) capabilities.add("tools");
+
+  return {
+    project: guardianProject(env),
+    importance: importance ?? GUARDIAN_DEFAULTS.importance,
+    use_case: useCase ?? GUARDIAN_DEFAULTS.useCase,
+    ...(task ? { task } : {}),
+    ...(resolvedComplexity ? { complexity: resolvedComplexity } : {}),
+    ...(reasoning ? { reasoning } : {}),
+    ...(capabilities.size ? { capabilities: [...capabilities] } : {}),
+    ...(budgetRange ? { budgetRange } : {}),
+    ...(model ? { model } : {}),
+    ...(provider ? { provider } : {}),
+  };
 }
 
 /**
  * Build the payload for one run.
  *
  * @param env The Worker environment, which supplies the project identity.
- * @param options What this particular call wants: messages, task, routing hints.
+ * @param options What this particular call wants: messages, task, routing hints, tools.
  * @param stream True to ask the router for a live stream instead of a settled body.
  * @returns The payload to hand to `GuardianRpc.run`.
  * @throws {GuardianConfigError} when the project name is not configured.
@@ -146,20 +203,53 @@ export function buildRunPayload(
   options: GuardianRunOptions,
   stream = false,
 ): GuardianRunPayload {
-  const { messages, task, useCase, importance, complexity } = options;
-
-  // Hoisted rather than written inline. `a ?? b ? c : d` parses as
-  // `(a ?? b) ? c : d`, which is what is wanted here but reads like the
-  // opposite — and this is the one function every model call passes through.
-  const resolvedComplexity = complexity ?? GUARDIAN_DEFAULTS.complexity;
-
+  const { messages, tools } = options;
+  const hasTools = !!tools?.length;
   return {
-    project: guardianProject(env),
-    importance: importance ?? GUARDIAN_DEFAULTS.importance,
-    use_case: useCase ?? GUARDIAN_DEFAULTS.useCase,
-    ...(task ? { task } : {}),
-    ...(resolvedComplexity ? { complexity: resolvedComplexity } : {}),
+    ...routingFields(env, options, hasTools),
     ...(stream ? { stream: true as const } : {}),
-    input: { messages },
+    input: { messages, ...(hasTools ? { tools } : {}) },
   };
+}
+
+/**
+ * Build the payload for a dry-run routing decision: the same routing fields
+ * `buildRunPayload` would send, so the preview and the real run cannot drift.
+ *
+ * @param env The Worker environment.
+ * @param options The run you are about to make. `messages` is optional here;
+ *   when given, guardian's complexity classifier reads it.
+ * @returns The payload to hand to `GuardianRpc.route`.
+ * @throws {GuardianConfigError} when the project name is not configured.
+ */
+export function buildRoutePayload(
+  env: Env,
+  options: GuardianRoutingOptions & Partial<Pick<GuardianRunOptions, "messages" | "tools">>,
+): GuardianRoutePayload {
+  return {
+    ...routingFields(env, options, !!options.tools?.length),
+    ...(options.messages ? { input: { messages: options.messages } } : {}),
+  };
+}
+
+/**
+ * Build the arguments for one `GuardianRpc.workersAi` call.
+ *
+ * `origin` is what guardian attributes the neurons to, so it is the project
+ * name - the same ledger `run` bills - and never a literal.
+ *
+ * @param env The Worker environment.
+ * @param model A Workers AI model id, e.g. `GUARDIAN_DEFAULTS.embeddingModel`.
+ * @param input The model input, forwarded verbatim.
+ * @param task A label for guardian's usage log; prefer `GUARDIAN_TASKS`.
+ * @returns The positional arguments `workersAi` takes.
+ * @throws {GuardianConfigError} when the project name is not configured.
+ */
+export function buildWorkersAiCall(
+  env: Env,
+  model: string,
+  input: unknown,
+  task?: string,
+): [model: string, origin: string, input: unknown, opts: { taskDescription?: string }] {
+  return [model, guardianProject(env), input, task ? { taskDescription: task } : {}];
 }

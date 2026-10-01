@@ -12,7 +12,8 @@
  * The router rejected or failed a run.
  *
  * `status` is the HTTP-shaped status core-guardian returned: 422 no model
- * inside the budget, 429 circuit breaker open, anything else unexpected.
+ * inside the budget, 429 circuit breaker open or free Workers AI allowance
+ * spent, 400 a bad request, 502 the upstream failed.
  */
 export class GuardianError extends Error {
   // Written out rather than declared as constructor parameter properties, so
@@ -21,8 +22,19 @@ export class GuardianError extends Error {
   readonly status: number;
   readonly body: unknown;
 
-  constructor(status: number, body: unknown) {
-    super(`core-guardian run failed (status ${status})`);
+  /**
+   * @param status The status core-guardian answered with.
+   * @param body The body it answered with. Never echo this to a browser.
+   * @param message Guardian's own explanation. When omitted, `body.error` is
+   *   used if it is a string, so the reason survives into logs and alerts.
+   */
+  constructor(status: number, body: unknown, message?: string) {
+    const reason = message ?? (body as { error?: unknown } | null)?.error;
+    super(
+      typeof reason === "string" && reason
+        ? `core-guardian failed (status ${status}): ${reason}`
+        : `core-guardian run failed (status ${status})`,
+    );
     this.name = "GuardianError";
     this.status = status;
     this.body = body;

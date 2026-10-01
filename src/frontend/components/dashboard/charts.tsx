@@ -160,6 +160,7 @@ export function ThroughputChart({ data }: { data: ThroughputPoint[] }) {
 
   return (
     <ChartContainer config={config} className="aspect-auto h-[220px] w-full">
+      {/* ui-guard-allow no-vertical-bar: x-axis is a daily time series */}
       <BarChart accessibilityLayer data={data} margin={{ left: 4, right: 12 }}>
         <CartesianGrid vertical={false} />
         <XAxis

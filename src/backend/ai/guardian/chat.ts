@@ -25,8 +25,9 @@ function textFrom(body: any): string {
  * Run a chat completion through core-guardian's AI router.
  *
  * @param env The Worker environment.
- * @param options Messages plus optional task and routing hints.
- * @returns The reply text and what the router charged for it.
+ * @param options Messages plus optional task, routing hints and `tools`.
+ * @returns The reply text, any tool calls the model asked for, and what the
+ *   router charged for it.
  * @throws {GuardianError} on a non-200 result — 422 no model inside the
  *   budget, 429 circuit breaker, or any other rejection. Callers map this to
  *   an HTTP response and never leak `error.body` to the client.
@@ -55,8 +56,10 @@ export async function guardianChat(
 
   const outer = result.body as any;
   const inner = outer?.body ?? outer;
+  const toolCalls = inner?.choices?.[0]?.message?.tool_calls;
   return {
     text: textFrom(inner).trim(),
+    toolCalls: Array.isArray(toolCalls) ? toolCalls : [],
     provider: outer?.provider ?? null,
     model: outer?.model ?? null,
     costUsd: outer?.cost_usd ?? null,
