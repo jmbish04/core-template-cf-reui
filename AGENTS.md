@@ -133,6 +133,24 @@ decoration has no real backing, remove the decoration — do not fake it.
   (`service: core-guardian`, `entrypoint: GuardianRpc`, `remote: true`). No `ai`
   binding, no provider SDKs. Import from the folder's `index.ts`, never from the
   files inside it.
+  - **Every `GuardianRpc` method has a wrapper. Copy from
+    `guardian/examples.ts`** — worked samples that `pnpm run typecheck`
+    compiles, so they cannot drift from the API:
+
+    | Need | Call |
+    |---|---|
+    | One completion | `guardianChat(env, { task, messages, importance?, model?: "auto" })` |
+    | Tool calling | `guardianChat(env, { tools, messages })` → `toolCalls`; sending `tools` adds `capabilities: ["tools"]` for you |
+    | Streaming | `guardianStream` + `readGuardianStream` (full version: `POST /api/chat/stream`) |
+    | Embeddings | `embed(env, texts)` → `number[][]` (bge-small, 100 per call) + `cosineSimilarity` |
+    | Any other Workers AI model | `guardianWorkersAi(env, model, input, task)` |
+    | Preview a route, no spend | `routeGuardian(env, sameOptionsAsTheRun)`; catalog: `guardianUseCases` |
+    | Jules / Stitch / orchestration | `guardianToolkits` + `guardianTool(env, "jules.open_session", input)`, or raw `guardianJules` / `guardianStitch` / `guardianOrchestration` |
+
+    Let guardian route: routing hints or a sentinel `model` (`auto`, `best`,
+    `budget`, `cheapest`), never a concrete model unless you must. Every
+    wrapper throws `GuardianError` with guardian's own message on a refusal.
+    `scripts/selfcheck-guardian-surface.mjs` pins each wrapper to its method.
   - **`guardian/config.ts` builds EVERY payload.** `buildRunPayload` is the one
     construction site; `GUARDIAN_TASKS` holds the task labels so the routing log
     stays greppable. Change what is sent to the router by editing that file.
