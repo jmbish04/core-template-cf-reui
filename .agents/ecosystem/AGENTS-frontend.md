@@ -8,6 +8,53 @@
 
 ---
 
+# The frontend standard — non-negotiable UI rules
+
+**The standard is a repository: `jmbish04/core-template-cf-reui`.** It is pinned in
+colby-ecosystem as the submodule `templates/frontend`, and **every new frontend repo
+is created from it** — Colby Maestro provisions the new repo (Worker, CI/CD, synced
+briefings). `~/.colby-ecosystem/frontend` on Justin's Mac is a symlink to a local
+clone of it. When this file and the template disagree about *how*, read the template;
+when they disagree about a *rule*, this file wins and the template gets fixed.
+
+These rules are decided. Every one has been corrected by hand more than once:
+
+1. **Every page sits in the ReUI app shell**, through the shared layout. A page
+   that renders its own `<html>` is outside the shell.
+2. **ReUI's default theme, dark by default, a light toggle in the header.** No
+   custom palette, ever — never pick a brand colour. Measured failures: a teal
+   console, and an orange one nobody asked for. Colour comes from the design
+   tokens (`bg-primary`, `text-muted-foreground`, `var(--chart-1)`), never from a
+   hex literal or a Tailwind palette utility like `text-gray-500`.
+3. **A table is always the ReUI Data Grid, with grouping and the advanced filter
+   builder.** Never a plain `<table>`, and never group headers bolted onto one.
+4. **No pie or doughnut charts.** A horizontal bar, a stacked bar, or a number
+   with a trend reads better.
+5. **Bars are horizontal unless the x-axis is time.** (Recharts names it
+   backwards: `layout="vertical"` *is* the horizontal bar.)
+6. **Chart text, axes, gridlines and series are high-contrast on BOTH themes.**
+   Use the tokens; never a library's default black — black on a dark chart is
+   invisible, and it ships that way because the author only looked in one theme.
+7. **A chart turns data into information** — a trend, a comparison, a rate, an
+   anomaly, a forecast. A bar per status showing a count of rows is a table that
+   went to art school; show what changed, or how fast, or what is unusual.
+
+**`scripts/ui-guard.mjs` enforces the checkable subset and runs in `pnpm run
+build`.** It is a deterministic scan, not a review: `no-table`, `no-pie-chart`,
+`no-vertical-bar`, `no-raw-color`, `no-custom-palette` (a tinted `--primary` /
+`--ring` in the theme CSS — where the teal actually lived), `dark-default`,
+`app-shell`. `pull-agents` ships it to every frontend repo with the briefings.
+A genuine exception is suppressed on that one line, with a reason that a reviewer
+can disagree with:
+
+```tsx
+{/* ui-guard-allow no-vertical-bar: x-axis is a daily time series */}
+```
+
+Rules 6 and 7 are not checkable by a regex; they are yours to hold.
+
+---
+
 # One frontend, three runtimes, zero porting
 
 There is exactly **one** frontend stack, and it is deliberately portable so the
@@ -23,12 +70,12 @@ The **frontend does not care** what serves `/api`. Only the backend half differs
 This is why "port this to a Worker" must be a backend change, never a frontend
 rewrite — the shell, the blocks, the theme, and the components travel as-is.
 
-Never start a UI from scratch; never re-decide the stack per project. Copy the
-template, then adapt:
-
-```bash
-bash ~/.colby-ecosystem/frontend/install.sh
-```
+Never start a UI from scratch; never re-decide the stack per project. A new repo
+is **created from the template** (`jmbish04/core-template-cf-reui` — GitHub's
+"Use this template", then Colby Maestro provisions it). For an existing repo, copy
+what you need from the template — `components.json`, the theme CSS, the layouts —
+rather than re-deriving it. Locally the template is at `~/.colby-ecosystem/frontend`
+(a symlink to `/Volumes/Projects/workers/core-template-cf-reui`).
 
 Stack, locked:
 - **Astro + React islands** — SSR + only ship JS that must be interactive
@@ -36,8 +83,8 @@ Stack, locked:
 - **shadcn/ui** primitives — ReUI builds on them
 - **Tailwind CSS v4** + `tw-animate-css`
 - **mcpcn** (`@mcpcn`, public, no key) — MCP App UI blocks, for tool results a
-  person reads. Both registries ship in the template's `components.json`, and
-  `install.sh` adds `@mcpcn` to an existing one. See "MCP servers" in
+  person reads. Both registries ship in the template's `components.json`; copy the
+  `@mcpcn` entry into an existing one. See "MCP servers" in
   `~/AGENTS-cloudflare-workers.md`.
 - **PNPM is the default package manager.** Use `pnpm` for installs, `pnpm dlx
   shadcn@latest add`, `pnpm run <script>`, `pnpm run test`. Never `npm`/`yarn`/`bun`.
@@ -157,8 +204,9 @@ session.
 
 ## A new repo: configure it correctly, first commit
 
-1. `bash ~/.colby-ecosystem/frontend/install.sh` — stack, `components.json`, both
-   registries, the key resolved from the tokens CLI.
+1. Create it from `jmbish04/core-template-cf-reui` — stack, `components.json`,
+   both registries, the theme, the shell layout, and `scripts/ui-guard.mjs` already
+   wired into the build. Colby Maestro provisions the rest.
 2. Compile the design system's tokens into the project's `tokens.css` / theme
    layer **before installing any component**. Installing first means retokening
    every file by hand afterwards.
@@ -251,7 +299,7 @@ lives in the tokens CLI locally **and** in the Cloudflare Secret Store under the
 ## Local: tokens CLI
 
 Resolve at install time — never paste the key into a repo file, never a `.env`,
-never hardcode it. The `install.sh` already does this:
+never hardcode it:
 
 ```bash
 tokens find REUI_LICENSE_KEY                       # verify it exists (names only)
@@ -450,14 +498,11 @@ searched across which categories before writing anything custom.
 These are decided. Do not re-litigate them per project, and do not let a block's
 stock example override them:
 
-- **No pie charts.** Not for share-of-total, not for status breakdowns, not as
-  "just what the block came with." Swap them — a horizontal bar, a stacked bar,
-  or a number with a trend almost always reads better.
-- **Bar charts are horizontal** unless there is a specific reason otherwise
-  (a genuine time series along the x-axis is the usual exception). Horizontal
-  survives long category labels, which is what most of these charts carry.
-- **Do grouping properly.** If a table groups, take the Data Grid block built for
-  grouping rather than bolting group headers onto a plain table.
+Rules 3–7 of "The frontend standard" at the top of this file: no pies, horizontal
+bars unless the x-axis is time (horizontal survives long category labels, which is
+what most of these charts carry), the Data Grid with grouping for every table,
+high contrast on both themes, information rather than counts. They hold even when a
+block's stock example breaks them — and `ui-guard` will say so.
 
 When a block's stock chart violates one of these, that is expected — retrofit it.
 That is what the charts page is for.
@@ -546,7 +591,7 @@ takes no children; every select gets a placeholder.
 
 Consult the **impeccable** skill before building anything visual, preloaded with
 what is already decided (shell, surface, theme, pages above). Full detail:
-`~/.colby-ecosystem/frontend/README.md` and
+the template's own `README.md` / `AGENTS.md` and
 `~/.colby-ecosystem/reference/frontends.md`.
 
 ---

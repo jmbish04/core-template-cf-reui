@@ -1,7 +1,7 @@
 <!-- BEGIN colby-ecosystem: managed by pull-agents, do not edit inside this block -->
 ## Machine-wide agent briefings (synced — do not edit here)
 
-Pulled from `jmbish04/colby-ecosystem` by Colby Maestro's repo provisioning, right-sized to this
+Pulled from `jmbish04/colby-ecosystem` by `.github/workflows/agents-sync.yml`, right-sized to this
 repo's stack. Read them before your first load-bearing change; where they and the
 notes below this block disagree, they win. Edit them in `jmbish04/colby-ecosystem`, never here.
 
