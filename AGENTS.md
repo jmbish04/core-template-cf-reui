@@ -1,4 +1,5 @@
 <!-- BEGIN colby-ecosystem: managed by pull-agents, do not edit inside this block -->
+
 ## Machine-wide agent briefings (synced — do not edit here)
 
 Pulled from `jmbish04/colby-ecosystem` by `.github/workflows/agents-sync.yml`, right-sized to this
@@ -30,6 +31,7 @@ in colby-ecosystem, which only stores config. Refresh this block with
 - Build new views as React islands inside the ReUI app shell, from ReUI Pro blocks, dark by default, one surface per screen. See "ReUI design system" below — including the Base UI select trap, which is the single most repeated bug in this repo.
 - Enforce Zod validation on backend endpoints, expose OpenAPI v3.1.0 at `/openapi.json`, `/swagger`, and `/scalar`, and keep endpoints strongly typed.
 - Every new service or view must expose `/health` and emit structured logs/metrics into the mirrored D1 logging layer.
+
 # Agent Workspace Overview
 
 Welcome to the `core-template-cfw-assets-astro-shadcn` template. This is a unified full-stack template combining Cloudflare Workers (Backend & Assets) with Astro and React + Shadcn/ui (Frontend).
@@ -119,6 +121,28 @@ blocks 2026-09-26. Authority: the ReUI Astro React design system
   renders pages without remote bindings. `/api/*` is served by the Hono worker, so
   data and chat only work under `pnpm run build && pnpm exec wrangler dev`.
 
+## The Worker describes itself — five derived vars
+
+A template whose identity is a literal lies about every fork of itself. Nothing
+in the UI, the billing attribution or the health page names this repository
+directly; five vars are DERIVED into `wrangler.jsonc` on every deploy by
+`scripts/set-deploy-vars.mjs` (run by `pnpm run deploy`, drift-checked by
+`pnpm run deploy:vars:check`, asserted by `scripts/selfcheck-deploy-vars.mjs`):
+
+| Var                | Derived from                                                                |
+| ------------------ | --------------------------------------------------------------------------- |
+| `GUARDIAN_PROJECT` | the Worker's `name` — what core-guardian bills against                      |
+| `WORKER_NAME`      | the Worker's `name` — what the UI and health page show                      |
+| `WORKER_URL`       | the shortest custom-domain route, else `https://<name>.hacolby.workers.dev` |
+| `GITHUB_REPO`      | `owner/repo` from the `origin` git remote                                   |
+| `GITHUB_REPO_URL`  | `https://github.com/<owner>/<repo>`                                         |
+
+Rules: **never hardcode any of them**, read them off `env`, and when a value is
+absent (a repo with no remote yet) the var is written as `""` and the surface
+HIDES the thing rather than rendering a broken link. Adding a sixth var means
+adding it to `MANAGED_VARS`, deriving it in `deriveVars`, and planting a
+regression in the self-check that proves the new assertion can go red.
+
 ## Template App Surface (reference implementation)
 
 This template ships a real, running app so new projects inherit working
@@ -137,27 +161,28 @@ decoration has no real backing, remove the decoration — do not fake it.
     `guardian/examples.ts`** — worked samples that `pnpm run typecheck`
     compiles, so they cannot drift from the API:
 
-    | Need | Call |
-    |---|---|
-    | One completion | `guardianChat(env, { task, messages, importance?, model?: "auto" })` |
-    | Tool calling | `guardianChat(env, { tools, messages })` → `toolCalls`; sending `tools` adds `capabilities: ["tools"]` for you |
-    | Streaming | `guardianStream` + `readGuardianStream` (full version: `POST /api/chat/stream`) |
-    | Embeddings | `embed(env, texts)` → `number[][]` (bge-small, 100 per call) + `cosineSimilarity` |
-    | Any other Workers AI model | `guardianWorkersAi(env, model, input, task)` |
-    | Preview a route, no spend | `routeGuardian(env, sameOptionsAsTheRun)`; catalog: `guardianUseCases` |
+    | Need                           | Call                                                                                                                                       |
+    | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+    | One completion                 | `guardianChat(env, { task, messages, importance?, model?: "auto" })`                                                                       |
+    | Tool calling                   | `guardianChat(env, { tools, messages })` → `toolCalls`; sending `tools` adds `capabilities: ["tools"]` for you                             |
+    | Streaming                      | `guardianStream` + `readGuardianStream` (full version: `POST /api/chat/stream`)                                                            |
+    | Embeddings                     | `embed(env, texts)` → `number[][]` (bge-small, 100 per call) + `cosineSimilarity`                                                          |
+    | Any other Workers AI model     | `guardianWorkersAi(env, model, input, task)`                                                                                               |
+    | Preview a route, no spend      | `routeGuardian(env, sameOptionsAsTheRun)`; catalog: `guardianUseCases`                                                                     |
     | Jules / Stitch / orchestration | `guardianToolkits` + `guardianTool(env, "jules.open_session", input)`, or raw `guardianJules` / `guardianStitch` / `guardianOrchestration` |
 
     Let guardian route: routing hints or a sentinel `model` (`auto`, `best`,
     `budget`, `cheapest`), never a concrete model unless you must. Every
     wrapper throws `GuardianError` with guardian's own message on a refusal.
     `scripts/selfcheck-guardian-surface.mjs` pins each wrapper to its method.
+
   - **`guardian/config.ts` builds EVERY payload.** `buildRunPayload` is the one
     construction site; `GUARDIAN_TASKS` holds the task labels so the routing log
     stays greppable. Change what is sent to the router by editing that file.
   - **The project name is a var, not a literal.** `vars.GUARDIAN_PROJECT` in
     `wrangler.jsonc` is what core-guardian bills and logs against, and
-    `scripts/set-guardian-project.mjs` keeps it equal to the Worker's own `name`
-    on every deploy (`pnpm run deploy` runs it; `pnpm run guardian:project:check`
+    `scripts/set-deploy-vars.mjs` keeps it equal to the Worker's own `name`
+    on every deploy (`pnpm run deploy` runs it; `pnpm run deploy:vars:check`
     fails on drift). A hardcoded name meant a forked Worker reported its spend
     under the template's name with nothing looking broken — so a missing var now
     THROWS (`GuardianConfigError`) rather than defaulting, `/api/health` reports
@@ -226,7 +251,7 @@ decoration has no real backing, remove the decoration — do not fake it.
     `/settings/{preferences,notifications,webhooks,advanced}` (ReUI `settings-3`).
   - `/docs` + `/playbook` — documentation using the Shiki-backed ReUI CodeBlock.
 - **Schemas** live in `db/schemas/{projects,tasks,stats,settings,notifications,
-  chat,inbox,files}/` (drizzle-zod + `*_TABLE_DESCRIPTION` /
+chat,inbox,files}/` (drizzle-zod + `*_TABLE_DESCRIPTION` /
   `*_COLUMN_DESCRIPTIONS` consumed by `/docs`; register every new table in
   `api/routes/docs.ts`).
   **drizzle-zod maps a `timestamp` column to a bare `z.date()` with NO
@@ -234,7 +259,7 @@ decoration has no real backing, remove the decoration — do not fake it.
   client can send. Coerce at the route (see `jsonDate` in `routes/tasks.ts`)
   whenever a date column must be writable over HTTP.
 - **APIs**: `/api/{projects,tasks,team-notes,settings,webhooks,activity,
-  notifications,dashboard,threads,chat,inbox,files}` — CRUD + `?q=` search +
+notifications,dashboard,threads,chat,inbox,files}` — CRUD + `?q=` search +
   filters + pagination. Health: `/api/health` (D1 + a no-spend
   `CORE_GUARDIAN.useCases()` check that fails the verdict when the binding is
   down).

@@ -11,7 +11,9 @@
  */
 import type { ReactNode } from "react";
 
+import type { ResolvedDevice } from "@/lib/device";
 import { cn } from "@/lib/utils";
+import type { WorkerIdentity } from "@/shared/worker-identity";
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
@@ -23,10 +25,20 @@ export interface AppShellProps {
   activePath: string;
   /** Initial rail state, restored from the `sidebar_state` cookie. */
   defaultOpen?: boolean;
+  /** Which surface this request rendered, and whether it was an override. */
+  device: ResolvedDevice;
+  /** The deploy-set vars this Worker describes itself with. */
+  identity: WorkerIdentity;
   children?: ReactNode;
 }
 
-export function AppShell({ activePath, defaultOpen = true, children }: AppShellProps) {
+export function AppShell({
+  activePath,
+  defaultOpen = true,
+  device,
+  identity,
+  children,
+}: AppShellProps) {
   return (
     <SidebarProvider
       defaultOpen={defaultOpen}
@@ -50,9 +62,9 @@ export function AppShell({ activePath, defaultOpen = true, children }: AppShellP
         "[&_[data-slot=sidebar-menu-sub-button]:hover>svg]:opacity-100 [&_[data-slot=sidebar-menu-sub-button]>svg]:opacity-60",
       )}
     >
-      <AppSidebar path={activePath} />
+      <AppSidebar path={activePath} identity={identity} />
       <SidebarInset className="min-w-0">
-        <AppHeader path={activePath} />
+        <AppHeader path={activePath} device={device} />
         <div className="flex min-w-0 flex-1 flex-col py-2 pr-4 pl-2">{children}</div>
       </SidebarInset>
     </SidebarProvider>
