@@ -1,4 +1,4 @@
-CREATE TABLE `chat_threads` (
+CREATE TABLE IF NOT EXISTS `chat_threads` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text DEFAULT 'New chat' NOT NULL,
 	`model` text,

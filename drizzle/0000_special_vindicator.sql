@@ -1,17 +1,17 @@
-CREATE TABLE `global_config` (
+CREATE TABLE IF NOT EXISTS `global_config` (
 	`key` text PRIMARY KEY NOT NULL,
 	`value` text NOT NULL,
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `job_failures` (
+CREATE TABLE IF NOT EXISTS `job_failures` (
 	`id` text PRIMARY KEY NOT NULL,
 	`job_url` text NOT NULL,
 	`error_message` text NOT NULL,
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `health_runs` (
+CREATE TABLE IF NOT EXISTS `health_runs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`status` text DEFAULT 'unknown' NOT NULL,
 	`trigger` text NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE `health_runs` (
 	`metadata` text
 );
 --> statement-breakpoint
-CREATE TABLE `health_results` (
+CREATE TABLE IF NOT EXISTS `health_results` (
 	`id` text PRIMARY KEY NOT NULL,
 	`run_id` text NOT NULL,
 	`category` text NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE `health_results` (
 	FOREIGN KEY (`run_id`) REFERENCES `health_runs`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `health_test_definitions` (
+CREATE TABLE IF NOT EXISTS `health_test_definitions` (
 	`name` text PRIMARY KEY NOT NULL,
 	`category` text NOT NULL,
 	`description` text NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE `health_test_definitions` (
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `health_checks` (
+CREATE TABLE IF NOT EXISTS `health_checks` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`service_name` text NOT NULL,
 	`status` text NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE `health_checks` (
 	`timestamp` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `best_practices` (
+CREATE TABLE IF NOT EXISTS `best_practices` (
 	`id` text PRIMARY KEY NOT NULL,
 	`category` text NOT NULL,
 	`rule` text NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE `best_practices` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `hitl_proposals` (
+CREATE TABLE IF NOT EXISTS `hitl_proposals` (
 	`id` text PRIMARY KEY NOT NULL,
 	`agent_id` text NOT NULL,
 	`instance_name` text NOT NULL,
@@ -76,7 +76,7 @@ CREATE TABLE `hitl_proposals` (
 	`decided_at` integer
 );
 --> statement-breakpoint
-CREATE TABLE `mcp_logs` (
+CREATE TABLE IF NOT EXISTS `mcp_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`server_name` text NOT NULL,
 	`tool_name` text NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE `mcp_logs` (
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `dashboard_metrics` (
+CREATE TABLE IF NOT EXISTS `dashboard_metrics` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`metric_name` text NOT NULL,
 	`metric_value` real NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE `dashboard_metrics` (
 	`timestamp` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `projects` (
+CREATE TABLE IF NOT EXISTS `projects` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`slug` text NOT NULL,
@@ -111,8 +111,8 @@ CREATE TABLE `projects` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `projects_slug_unique` ON `projects` (`slug`);--> statement-breakpoint
-CREATE TABLE `tasks` (
+CREATE UNIQUE INDEX IF NOT EXISTS `projects_slug_unique` ON `projects` (`slug`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text,
 	`title` text NOT NULL,
@@ -129,7 +129,7 @@ CREATE TABLE `tasks` (
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `team_notes` (
+CREATE TABLE IF NOT EXISTS `team_notes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text,
 	`title` text NOT NULL,
@@ -141,7 +141,7 @@ CREATE TABLE `team_notes` (
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `activity_log` (
+CREATE TABLE IF NOT EXISTS `activity_log` (
 	`id` text PRIMARY KEY NOT NULL,
 	`actor` text DEFAULT 'you' NOT NULL,
 	`action` text NOT NULL,
@@ -152,7 +152,7 @@ CREATE TABLE `activity_log` (
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `metrics_daily` (
+CREATE TABLE IF NOT EXISTS `metrics_daily` (
 	`id` text PRIMARY KEY NOT NULL,
 	`date` text NOT NULL,
 	`metric` text NOT NULL,
@@ -160,7 +160,7 @@ CREATE TABLE `metrics_daily` (
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `preferences` (
+CREATE TABLE IF NOT EXISTS `preferences` (
 	`id` text PRIMARY KEY DEFAULT 'default' NOT NULL,
 	`theme` text DEFAULT 'system' NOT NULL,
 	`accent_color` text DEFAULT '#6366f1' NOT NULL,
@@ -179,7 +179,7 @@ CREATE TABLE `preferences` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `webhooks` (
+CREATE TABLE IF NOT EXISTS `webhooks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`url` text NOT NULL,
@@ -191,7 +191,7 @@ CREATE TABLE `webhooks` (
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `notification_prefs` (
+CREATE TABLE IF NOT EXISTS `notification_prefs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`channel` text NOT NULL,
 	`category` text NOT NULL,
@@ -199,7 +199,7 @@ CREATE TABLE `notification_prefs` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `notifications` (
+CREATE TABLE IF NOT EXISTS `notifications` (
 	`id` text PRIMARY KEY NOT NULL,
 	`type` text DEFAULT 'info' NOT NULL,
 	`title` text NOT NULL,

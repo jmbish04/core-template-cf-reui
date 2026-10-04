@@ -1,4 +1,4 @@
-CREATE TABLE `chat_documents` (
+CREATE TABLE IF NOT EXISTS `chat_documents` (
 	`id` text PRIMARY KEY NOT NULL,
 	`thread_id` text NOT NULL,
 	`title` text DEFAULT 'Untitled document' NOT NULL,
@@ -8,8 +8,8 @@ CREATE TABLE `chat_documents` (
 	FOREIGN KEY (`thread_id`) REFERENCES `chat_threads`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `chat_documents_thread_id_unique` ON `chat_documents` (`thread_id`);--> statement-breakpoint
-CREATE TABLE `files` (
+CREATE UNIQUE INDEX IF NOT EXISTS `chat_documents_thread_id_unique` ON `chat_documents` (`thread_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `files` (
 	`id` text PRIMARY KEY NOT NULL,
 	`parent_id` text,
 	`kind` text NOT NULL,
@@ -23,4 +23,4 @@ CREATE TABLE `files` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `files_parent_idx` ON `files` (`parent_id`);
+CREATE INDEX IF NOT EXISTS `files_parent_idx` ON `files` (`parent_id`);
