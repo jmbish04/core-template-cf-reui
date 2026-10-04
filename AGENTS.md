@@ -143,6 +143,48 @@ HIDES the thing rather than rendering a broken link. Adding a sixth var means
 adding it to `MANAGED_VARS`, deriving it in `deriveVars`, and planting a
 regression in the self-check that proves the new assertion can go red.
 
+## Session auth — the signing key is derived, never stored
+
+The session cookie's HMAC key comes from `WORKER_API_KEY`, through
+`deriveSessionSigningKey` in `src/shared/session-key.ts`. Do not reintroduce a
+stored key.
+
+**What it replaced, measured in this repo:** `getCookieSigningKey` kept a random
+UUID in the `SESSIONS` KV namespace, minted a new one whenever the read returned
+null, and returned the literal `"default_dev_key_fallback"` whenever KV threw.
+KV is eventually consistent, so a miss is a routine outcome rather than an
+error — and every miss silently invalidated every live cookie. The symptom was
+being forced to log in again on nearly every page, with nothing in the logs. The
+fallback made it worse: sign and verify could run under two different keys
+inside one request pair.
+
+Rules:
+
+- **The key is derived, with no fallback.** An unresolvable `WORKER_API_KEY`
+  throws; it never signs with a placeholder that a later request cannot verify.
+- **Rotating `WORKER_API_KEY` is the sign-everyone-out lever, and the only one.**
+  `scripts/selfcheck-session-key.mjs` asserts that rotation actually revokes.
+- **`SESSION_COOKIE_MAX_AGE` is 400 days** — the ceiling browsers honour
+  (RFC 6265bis; Chrome clamps above it). A larger `Max-Age` is not a longer
+  session, it is a cookie whose stated lifetime and whose `exp` claim disagree.
+- **Never name the credential in anything a person can see** — not the login
+  page, not an error body, not `/docs`. The unbound-secret path logs the name
+  and answers 503 with a generic message.
+
+**Local dev needs the local Secrets Store seeded, once per clone.** Secrets Store
+bindings run in LOCAL mode under `wrangler dev` and `"remote": true` is NOT
+honoured for them (measured 2026-10-04: the binding still reports `local`), so
+every auth path answers 500 with `Secret "WORKER_API_KEY" not found` until you
+seed it:
+
+```bash
+npx wrangler secrets-store secret create 8c42fa70938644e0a8a109744467375f \
+  --name WORKER_API_KEY --scopes workers
+```
+
+Omit `--remote` — that is what makes it the local store. It persists under
+`.wrangler/state`, so it survives restarts but not a state wipe.
+
 ## Template App Surface (reference implementation)
 
 This template ships a real, running app so new projects inherit working
