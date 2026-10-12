@@ -130,6 +130,26 @@ and, for anything that calls a model, **`~/AGENTS-ai.md`**.
      the INDEX, so this is only safe while the peer's work is UNSTAGED — if they
      have staged changes, it captures them into your commit.
 
+## Strict Component Libraries & Data Input Standards (Zero Tailwind Slop & Zero CSV)
+
+1. **NO RAW TAILWIND SLOP**:
+   - Never write raw Tailwind markup, ad-hoc `div` utility chains, or hardcoded color palettes (`text-gray-500`, `bg-gray-900`, `text-cyan-400`, `border-gray-800`) when building frontend views.
+   - You MUST use compiled ReUI (`@reui/*`, `src/components/reui/*`) and shadcn (`src/components/ui/*`) component library primitives exclusively.
+   - Style strictly through semantic design tokens (`bg-background`, `text-foreground`, `border-border`, `bg-muted/50`, `text-muted-foreground`, `bg-card`).
+   - Every container MUST be a ReUI `Frame`, every card a `Card`, every state an `EmptyState`, and every status a `Badge`.
+
+2. **ABSOLUTE BAN ON CSV FOR LIST INPUTS**:
+   - Never use comma-separated strings (`CSV`) in input fields, forms, settings, or state for lists of items (domains, tags, repos, keywords).
+   - All lists MUST use discrete, interactive `Badge` elements with click-to-dismiss `X` buttons and an enter-to-add tag input component (`TagInput`).
+
+3. **SECTIONED SETTINGS & PRO-BLOCKS**:
+   - Settings views must always be organized into categorized tabs or tagged sections (e.g., using ReUI / shadcn `Tabs`).
+   - Tables and list views must always use ReUI ProBlock data grids, never bare HTML tables.
+
+4. **NUMERIC THRESHOLDS & INPUTS**:
+   - Never use generic text inputs (`type="text"`) for fields that represent numbers, limits, intervals, or thresholds.
+   - Always use strict numeric inputs or `NumberField` with increment/decrement steppers, valid `min`, `max`, and `step` constraints.
+
 ## If you are lost
 
 1. Read `~/.config/zsh/AGENTS.md` for shell / banner questions.
