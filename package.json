@@ -13,7 +13,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "node scripts/ui-guard.mjs && astro build",
     "preview": "wrangler dev",
     "start": "astro dev",
     "fmt": "oxfmt",
@@ -30,7 +30,8 @@
     "selfcheck": "for f in scripts/selfcheck*.mjs; do node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON \"$f\" || exit 1; done",
     "typecheck": "tsc --noEmit",
     "guardian:project": "node scripts/set-guardian-project.mjs",
-    "guardian:project:check": "node scripts/set-guardian-project.mjs --check"
+    "guardian:project:check": "node scripts/set-guardian-project.mjs --check",
+    "ui-guard": "node scripts/ui-guard.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.3",

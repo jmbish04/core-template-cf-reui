@@ -1,6 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-vega",
+  "style": "base-nova",
   "rsc": false,
   "tsx": true,
   "tailwind": {
@@ -22,10 +22,13 @@
   "menuAccent": "subtle",
   "registries": {
     "@reui": {
-      "url": "https://reui.io/r/{style}/{name}.json",
+      "url": "https://reui.io/r/styles/{style}/{name}.json?v=dpl_4VjmFsMM2fx9pEbCcjy1PJdoRHfL",
       "headers": {
         "Authorization": "Bearer ${REUI_LICENSE_KEY}"
       }
+    },
+    "@mcpcn": {
+      "url": "https://mcpcn.vercel.app/r/{name}.json"
     }
   }
 }
