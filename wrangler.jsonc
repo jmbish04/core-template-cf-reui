@@ -41,6 +41,12 @@
       // local dev exercises the real AI router.
       "remote": true,
     },
+    {
+      "binding": "CORE_TK_CLI",
+      "service": "core-tk-cli",
+      "entrypoint": "CoreTkCliRpc",
+      "remote": true,
+    },
   ],
   "migrations": [
     // v1 captures the original deployed-class set so wrangler can apply

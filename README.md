@@ -34,6 +34,41 @@ agent briefings under `.agents/ecosystem/` synced. No repository secrets and no
 GitHub Actions are needed for any of that. Details:
 https://colby-maestro.hacolby.workers.dev/docs/cloudflare-automation
 
+## Secrets Management & Tokens Service (`CORE_TK_CLI`)
+
+Because Cloudflare Secret Store accounts are strictly capped at **100 total secrets**, this template uses the dedicated `core-tk-cli` worker service binding (`CORE_TK_CLI`) to pull secrets on demand over a private Cloudflare VPC tunnel into our local tokens catalog.
+
+### Using Secrets in Code
+
+All secret retrieval is handled through `src/backend/utils/secrets.ts`. It cascades automatically:
+1. `CORE_TK_CLI` service binding via RPC over VPC
+2. Cloudflare Secrets Store bindings (`await env.NAME.get()`)
+3. Plain environment variables / `.dev.vars` (local dev fallback)
+
+```typescript
+import { requireSecret, getSecret, safeFetchToken } from "@/backend/utils/secrets";
+
+// Pattern 1: Automatic Cascade (recommended for application startup & handlers)
+const apiKey = await requireSecret(env, "OPENAI_API_KEY"); // throws if missing across all sources
+const optKey = await getSecret(env, "SENTRY_DSN");        // returns undefined if missing
+
+// Pattern 2: Explicit Graceful Failure Handling (for non-fatal integrations)
+try {
+  const result = await safeFetchToken(env, "THIRD_PARTY_API_KEY");
+  if (!result.success) {
+    console.warn("Tokens service warning:", result.error);
+    // Graceful fallback or degraded mode
+  } else {
+    const key = result.data;
+  }
+} catch (error) {
+  // Graceful catch ensures tunnel/VPC drops never crash worker execution
+  console.error("Gracefully caught secret resolution failure:", error);
+}
+```
+
+See `/api/tokens-example` and `/playbook` for interactive examples and health checks.
+
 ## Dependency Maintenance
 
 This template is pnpm-first. Keep `pnpm-lock.yaml` committed and in sync with `package.json`.

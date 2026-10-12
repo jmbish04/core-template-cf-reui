@@ -44,6 +44,7 @@ import { taskHierarchyRouter } from "./routes/task-hierarchy";
 import { tasksRouter } from "./routes/tasks";
 import { teamNotesRouter } from "./routes/team-notes";
 import { threadsRouter } from "./routes/threads";
+import { tokensExampleRouter } from "./routes/tokens-example";
 import { webhooksRouter } from "./routes/webhooks";
 
 // ---------------------------------------------------------------------------
@@ -144,6 +145,7 @@ app.route("/api/dashboard", dashboardRouter);
 app.route("/api/inbox", inboxRouter);
 app.route("/api/files", filesRouter);
 app.route("/api/seed", seedRouter);
+app.route("/api/tokens-example", tokensExampleRouter);
 
 app.route("/api/__client-error", clientErrorRouter);
 

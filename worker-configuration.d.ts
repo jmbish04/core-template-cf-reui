@@ -25,6 +25,7 @@ interface __BaseEnv_Env {
 	DEFAULT_MODEL_EMBEDDING: "@cf/baai/bge-large-en-v1.5";
 	INBOX_FORWARD_TO: "";
 	CORE_GUARDIAN: Service /* entrypoint GuardianRpc from core-guardian */;
+	CORE_TK_CLI: Service /* entrypoint CoreTkCliRpc from core-tk-cli */;
 }
 declare namespace Cloudflare {
 	interface Env extends __BaseEnv_Env {}
