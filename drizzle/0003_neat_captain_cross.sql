@@ -1,4 +1,4 @@
-CREATE TABLE `task_comments` (
+CREATE TABLE IF NOT EXISTS `task_comments` (
 	`id` text PRIMARY KEY NOT NULL,
 	`task_id` text NOT NULL,
 	`author` text DEFAULT 'You' NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE `task_comments` (
 	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `task_subtasks` (
+CREATE TABLE IF NOT EXISTS `task_subtasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`task_id` text NOT NULL,
 	`title` text NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE `task_subtasks` (
 	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `task_attachments` (
+CREATE TABLE IF NOT EXISTS `task_attachments` (
 	`id` text PRIMARY KEY NOT NULL,
 	`task_id` text NOT NULL,
 	`filename` text NOT NULL,

@@ -1,4 +1,4 @@
-CREATE TABLE `email_messages` (
+CREATE TABLE IF NOT EXISTS `email_messages` (
 	`id` text PRIMARY KEY NOT NULL,
 	`from_address` text NOT NULL,
 	`from_name` text,

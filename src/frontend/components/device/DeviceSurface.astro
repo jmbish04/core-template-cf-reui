@@ -1,0 +1,55 @@
+---
+/**
+ * Render exactly one of a page's three variants.
+ *
+ * Every page in this template ships `*.mobile.tsx`, `*.tablet.tsx` and
+ * `*.desktop.tsx`. This picks one SERVER-SIDE from `Astro.locals.device`, so
+ * only the chosen variant's JavaScript is ever sent — the other two are not
+ * rendered, not hydrated, and not in the bundle for that request.
+ *
+ * @example
+ * ---
+ * import DeviceSurface from "@/components/device/DeviceSurface.astro";
+ * import Mobile from "@/components/tasks/TasksPage.mobile";
+ * import Tablet from "@/components/tasks/TasksPage.tablet";
+ * import Desktop from "@/components/tasks/TasksPage.desktop";
+ * ---
+ * <DeviceSurface mobile={Mobile} tablet={Tablet} desktop={Desktop} props={{ projectId }} />
+ */
+import type { DeviceSurface as Surface } from "@/lib/device";
+
+interface Props {
+  /** The 375px single-column variant. */
+  mobile: any;
+  /** The Tesla / tablet variant — horizontal first, usable vertical. */
+  tablet: any;
+  /** The full variant. */
+  desktop: any;
+  /** Props forwarded to whichever variant is chosen. */
+  props?: Record<string, unknown>;
+}
+
+const { mobile, tablet, desktop, props = {} } = Astro.props;
+
+// Astro.locals.device is set by src/frontend/middleware.ts. There is no
+// fallback here on purpose: a missing value means the middleware did not run,
+// which is a wiring bug, and silently picking "desktop" would hide it.
+const resolved = Astro.locals.device;
+if (!resolved) {
+  throw new Error(
+    "Astro.locals.device is unset — src/frontend/middleware.ts did not run for this request. " +
+      "DeviceSurface cannot choose a variant without it.",
+  );
+}
+
+const variants: Record<Surface, unknown> = { mobile, tablet, desktop };
+const Chosen = variants[resolved.surface] as any;
+if (!Chosen) {
+  throw new Error(
+    `DeviceSurface has no "${resolved.surface}" variant. Every page ships all three — ` +
+      "see the responsive-triad rule in AGENTS.md.",
+  );
+}
+---
+
+<Chosen client:load {...props} />

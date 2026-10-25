@@ -32,6 +32,7 @@ export * from "./schemas/tasks";
 export * from "./schemas/stats";
 export * from "./schemas/settings";
 export * from "./schemas/notifications";
+export * from "./schemas/auth";
 export * from "./schemas/inbox";
 export * from "./schemas/chat";
 export * from "./schemas/files";

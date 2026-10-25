@@ -11,6 +11,7 @@
  * and resolve any secret from the master tokens catalog over a private VPC
  * tunnel without consuming scarce Secret Store quota.
  */
+import { deriveSessionSigningKey } from "@/shared/session-key";
 
 // ---------------------------------------------------------------------------
 // CoreTkCli RPC Interface & Types
@@ -253,22 +254,20 @@ export async function getCloudflareAccountId(env: Env): Promise<string | undefin
 /**
  * HMAC key used to sign the session cookie.
  *
- * Stored in the `SESSIONS` KV namespace (not the Secrets Store) so it can be
- * rotated at runtime without a redeploy. Auto-provisions a random key on first
- * use, with a dev fallback if KV is unavailable.
+ * Derived from `WORKER_API_KEY`, never stored. The previous implementation
+ * kept a random UUID in the `SESSIONS` KV namespace and re-minted it whenever
+ * the read returned null — which, KV being eventually consistent, is a routine
+ * outcome — silently invalidating every live cookie each time. See
+ * `src/shared/session-key.ts` for the full account.
+ *
+ * @param env The Worker env.
+ * @returns The HMAC key, stable across colos and redeploys.
+ * @throws {Error} when `WORKER_API_KEY` cannot be resolved. There is no
+ *   fallback by design: signing with a placeholder produces a cookie that can
+ *   never be verified.
  */
 export async function getCookieSigningKey(env: Env): Promise<string> {
-  try {
-    let key = await env.SESSIONS.get("COOKIE_SIGNING_KEY");
-    if (key) return key;
-
-    key = crypto.randomUUID();
-    await env.SESSIONS.put("COOKIE_SIGNING_KEY", key);
-    return key;
-  } catch (e) {
-    console.warn("Failed to read/write COOKIE_SIGNING_KEY from KV", e);
-    return "default_dev_key_fallback";
-  }
+  return deriveSessionSigningKey(await getWorkerApiKey(env));
 }
 
 /**

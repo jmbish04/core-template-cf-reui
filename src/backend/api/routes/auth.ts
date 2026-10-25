@@ -46,7 +46,11 @@ authRouter.openapi(
     const { apiKey } = c.req.valid("json");
     const expected = await getWorkerApiKey(c.env);
     if (!expected) {
-      return c.json({ error: "Server misconfigured: WORKER_API_KEY not set" }, 500);
+      // Deliberately does not name the credential. Telling a stranger which
+      // secret is missing tells them exactly what they are guessing at; the
+      // real name is in the Worker's logs, where only the operator sees it.
+      console.error("Login is unavailable: the login credential is not bound (WORKER_API_KEY).");
+      return c.json({ error: "Login is temporarily unavailable." }, 503);
     }
 
     if (!constantTimeEqual(apiKey, expected)) {
