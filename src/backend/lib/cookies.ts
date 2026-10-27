@@ -1,8 +1,9 @@
+import { SESSION_COOKIE_MAX_AGE } from "@/shared/session-key";
+
 import { getCookieSigningKey } from "../utils/secrets";
 import { constantTimeEqual, decodeBase64Url, encodeBase64Url, hmacSign } from "./crypto";
 
 const SESSION_COOKIE = "cr_session";
-const TWO_YEARS_SECONDS = 60 * 60 * 24 * 365 * 2;
 
 export type SessionPayload = {
   sub: "single-user";
@@ -18,13 +19,13 @@ export async function createSessionCookie(
   const session: SessionPayload = {
     sub: "single-user",
     iat: payload.iat ?? now,
-    exp: payload.exp ?? now + TWO_YEARS_SECONDS,
+    exp: payload.exp ?? now + SESSION_COOKIE_MAX_AGE,
   };
   const encodedPayload = encodeBase64Url(JSON.stringify(session));
   const signingKey = await getCookieSigningKey(env);
   const signature = await hmacSign(signingKey, encodedPayload);
 
-  return `${SESSION_COOKIE}=${encodedPayload}.${signature}; HttpOnly; Secure; SameSite=Lax; Max-Age=${TWO_YEARS_SECONDS}; Path=/`;
+  return `${SESSION_COOKIE}=${encodedPayload}.${signature}; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_COOKIE_MAX_AGE}; Path=/`;
 }
 
 export async function verifySessionCookie(

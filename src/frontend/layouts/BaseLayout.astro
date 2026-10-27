@@ -4,9 +4,18 @@
  * adapted in components/blocks/app-shell-2). Dark is the default; the header
  * toggle stores an explicit "light" choice. Sidebar collapse persists in the
  * `sidebar_state` cookie and is applied server-side, so there is no flash.
+ *
+ * Two more things are resolved server-side and passed in: the device surface
+ * (`device_surface` cookie, else the User-Agent) and the Worker's own identity
+ * from the deploy-set vars.
  */
+// Astro v6 removed `Astro.locals.runtime.env`; `cloudflare:workers` is the
+// supported way to reach the Worker env from SSR.
+import { env } from "cloudflare:workers";
+
 import HeadSEO from "@/components/HeadSEO.astro";
 import { AppShell } from "@/components/blocks/app-shell-2/components/app-shell";
+import { readWorkerIdentity } from "@/shared/worker-identity";
 
 interface Props {
   title: string;
@@ -17,6 +26,12 @@ interface Props {
 const { title, description, ogImage } = Astro.props;
 const activePath = Astro.url.pathname;
 const defaultOpen = Astro.cookies.get("sidebar_state")?.value !== "false";
+// Resolved server-side by src/frontend/middleware.ts, so the page renders one
+// variant rather than shipping three and flashing the wrong one.
+const device = Astro.locals.device;
+// Never a literal: this repo is a template, and a hardcoded name or repo link
+// would make every fork display the template's identity instead of its own.
+const identity = readWorkerIdentity(env);
 ---
 
 <!doctype html>
@@ -30,7 +45,13 @@ const defaultOpen = Astro.cookies.get("sidebar_state")?.value !== "false";
     </script>
   </head>
   <body class="overscroll-none antialiased">
-    <AppShell client:load activePath={activePath} defaultOpen={defaultOpen}>
+    <AppShell
+      client:load
+      activePath={activePath}
+      defaultOpen={defaultOpen}
+      device={device}
+      identity={identity}
+    >
       <slot />
     </AppShell>
   </body>

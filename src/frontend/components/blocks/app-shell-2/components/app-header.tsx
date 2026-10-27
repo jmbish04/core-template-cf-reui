@@ -5,17 +5,20 @@
  * breadcrumb (Workspace → @user → Page, with avatar chips) is removed: it was
  * a decorative tenant trail this single-tenant template has nothing to put in.
  * What is left is the mobile sidebar trigger, the current page's title derived
- * from the route table, and the real actions — notifications and the theme
- * toggle.
+ * from the route table, and the real actions — the surface selector,
+ * notifications and the theme toggle.
  */
 import { findNavTrail } from "@/lib/config";
+import type { ResolvedDevice } from "@/lib/device";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
+import { DeviceSelector } from "@/components/device/DeviceSelector";
+
 import { NotificationsMenu } from "./notifications-menu";
 
-export function AppHeader({ path }: { path: string }) {
+export function AppHeader({ path, device }: { path: string; device: ResolvedDevice }) {
   const trail = findNavTrail(path);
   const title = trail.child?.label ?? trail.item?.label ?? "";
 
@@ -26,6 +29,7 @@ export function AppHeader({ path }: { path: string }) {
         <span className="truncate text-sm font-medium">{title}</span>
       </div>
       <div className="flex items-center gap-1 pr-4">
+        <DeviceSelector device={device} />
         <NotificationsMenu />
         <ThemeToggle />
       </div>

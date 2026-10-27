@@ -10,13 +10,14 @@
 import { Sidebar, SidebarContent, SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { siteConfig } from "@/lib/config";
+import type { WorkerIdentity } from "@/shared/worker-identity";
 
 import { Logo } from "./logo";
 import { NavMain } from "./nav-main";
 import { NavSecondary } from "./nav-secondary";
 import { SearchForm } from "./search-form";
 
-export function AppSidebar({ path }: { path: string }) {
+export function AppSidebar({ path, identity }: { path: string; identity: WorkerIdentity }) {
   return (
     <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader className="flex flex-row items-center justify-between in-data-[state=collapsed]:flex-col in-data-[state=collapsed]:items-start in-data-[state=collapsed]:justify-center">
@@ -41,7 +42,7 @@ export function AppSidebar({ path }: { path: string }) {
         <NavMain path={path} />
 
         <div className="mt-auto">
-          <NavSecondary path={path} />
+          <NavSecondary path={path} identity={identity} />
         </div>
       </SidebarContent>
     </Sidebar>

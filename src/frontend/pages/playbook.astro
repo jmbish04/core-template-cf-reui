@@ -132,9 +132,41 @@ const wranglerExample = `{
   "d1_databases": [{ "binding": "DB", "database_name": "app" }],
   // All inference goes to core-guardian over a service binding: metered,
   // budget-capped, circuit-broken. No "ai" binding, no Durable Objects.
+  // Unlimited secrets access via CORE_TK_CLI over VPC without Secret Store limits.
   "services": [
-    { "binding": "CORE_GUARDIAN", "service": "core-guardian", "entrypoint": "GuardianRpc", "remote": true }
+    { "binding": "CORE_GUARDIAN", "service": "core-guardian", "entrypoint": "GuardianRpc", "remote": true },
+    { "binding": "CORE_TK_CLI", "service": "core-tk-cli", "entrypoint": "CoreTkCliRpc", "remote": true }
   ]
+}`;
+
+const tokensServiceExample = `import { getSecret, requireSecret, safeFetchToken, safeFindTokens } from "@/backend/utils/secrets";
+
+// Pattern 1: Automatic Cascade with Graceful Fallback
+// Attempts CORE_TK_CLI via VPC RPC first; gracefully falls back to Secrets Store / env.
+export async function getCredentials(env: Env) {
+  // Throws informative error with instructions if missing across all sources:
+  const apiKey = await requireSecret(env, "OPENAI_API_KEY");
+
+  // Optional key (returns undefined if absent, never throws):
+  const optionalKey = await getSecret(env, "SENTRY_DSN");
+  return { apiKey, optionalKey };
+}
+
+// Pattern 2: Explicit Graceful Failure Handler with try/catch
+// Use safeFetchToken() when you need explicit error states or fallback defaults:
+export async function fetchThirdPartyKey(env: Env) {
+  try {
+    const res = await safeFetchToken(env, "ANTHROPIC_API_KEY");
+    if (!res.success) {
+      console.warn("[tokens] Service returned error:", res.error);
+      return { ok: false, error: "Tokens service temporarily unreachable" };
+    }
+    return { ok: true, key: res.data };
+  } catch (err) {
+    // Graceful error handler for unexpected VPC tunnel or network errors
+    console.error("[tokens] Unexpected error fetching secret:", err);
+    return { ok: false, error: "Internal secret resolution failure" };
+  }
 }`;
 
 const workerEntryExample = `/** True for paths the Hono API owns (REST + OpenAPI doc surfaces). */
@@ -234,6 +266,30 @@ async fetch(request: Request, env: Env, ctx: ExecutionContext) {
           ]}
           showLineNumbers
         />
+      </FramePanel>
+    </Frame>
+
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>Secrets and Tokens Service (CORE_TK_CLI)</FrameTitle>
+        <FrameDescription>
+          Cloudflare Secret Store is hard-capped at 100 secrets per account. The dedicated CORE_TK_CLI service binding routes RPC calls over a private VPC tunnel into our local tokens catalog, giving Workers access to unlimited secrets with graceful try/catch fallbacks.
+        </FrameDescription>
+      </FrameHeader>
+      <FramePanel className="p-0">
+        <CodeBlock
+          client:visible
+          className="rounded-none bg-transparent ring-0"
+          filename="src/backend/utils/secrets.ts"
+          language="ts"
+          code={tokensServiceExample}
+          showLineNumbers
+        />
+      </FramePanel>
+      <FramePanel className="bg-muted/40 border-border">
+        <p class="text-muted-foreground text-sm">
+          <strong>Graceful failure:</strong> If the VPC tunnel is temporarily offline, <code>getSecret()</code> logs a warning and seamlessly falls back to Cloudflare Secret Store bindings and environment variables without crashing worker execution.
+        </p>
       </FramePanel>
     </Frame>
 

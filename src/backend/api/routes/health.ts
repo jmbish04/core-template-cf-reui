@@ -69,6 +69,7 @@ class HealthCoordinator {
       this.checkD1(),
       this.checkGuardianProject(),
       this.checkCoreGuardian(),
+      this.checkTokensService(),
     ]);
 
     const durationMs = Date.now() - start;
@@ -209,6 +210,40 @@ class HealthCoordinator {
         name: "core_guardian_binding",
         status: "fail",
         message: error instanceof Error ? error.message : "Unknown core-guardian failure",
+        durationMs: Date.now() - start,
+      };
+    }
+  }
+
+  private async checkTokensService(): Promise<CheckResult> {
+    const start = Date.now();
+    try {
+      const binding = (this.env as unknown as { CORE_TK_CLI?: { list(): Promise<unknown[]> } }).CORE_TK_CLI;
+      if (!binding || typeof binding.list !== "function") {
+        return {
+          category: "binding",
+          name: "core_tk_cli_tokens_service",
+          status: "skipped",
+          message: "CORE_TK_CLI service binding not present in environment",
+          durationMs: Date.now() - start,
+        };
+      }
+      const list = await binding.list();
+      const count = Array.isArray(list) ? list.length : 0;
+      return {
+        category: "binding",
+        name: "core_tk_cli_tokens_service",
+        status: "ok",
+        message: `core-tk-cli tokens service reachable via VPC tunnel (${count} tokens indexed)`,
+        details: { tokenCount: count },
+        durationMs: Date.now() - start,
+      };
+    } catch (error) {
+      return {
+        category: "binding",
+        name: "core_tk_cli_tokens_service",
+        status: "warn",
+        message: error instanceof Error ? `Tokens service unreachable: ${error.message}` : "Tokens service failure",
         durationMs: Date.now() - start,
       };
     }

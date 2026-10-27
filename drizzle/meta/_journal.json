@@ -71,6 +71,13 @@
       "when": 1790467647466,
       "tag": "0009_plain_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791091556890,
+      "tag": "0010_panoramic_praxagora",
+      "breakpoints": true
     }
   ]
 }

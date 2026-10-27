@@ -1,4 +1,5 @@
 <!-- BEGIN colby-ecosystem: managed by pull-agents, do not edit inside this block -->
+
 ## Machine-wide agent briefings (synced — do not edit here)
 
 Pulled from `jmbish04/colby-ecosystem` by `.github/workflows/agents-sync.yml`, right-sized to this
@@ -16,6 +17,9 @@ notes below this block disagree, they win. Edit them in `jmbish04/colby-ecosyste
 The scripts in `scripts/` carrying a `colby-ecosystem: managed script` banner come from there too.
 Use them rather than writing another: `scripts/gh.mjs` is the GitHub entry point
 and wraps the `gh-tools` CLI, which already solves the auth this machine trips on.
+`scripts/run.sh` is the verbose step runner: source it and put every step through
+`run`, so a script that fails on its first line says so instead of reading as a
+success. `bash scripts/run.sh --self-check` proves its own checks can fail.
 
 Work is tracked in **colby-maestro** (`https://colby-maestro.hacolby.workers.dev/mcp`,
 bearer `$(tokens show WORKER_API_KEY --value-only)`) — never in this repo and never
@@ -30,6 +34,7 @@ in colby-ecosystem, which only stores config. Refresh this block with
 - Build new views as React islands inside the ReUI app shell, from ReUI Pro blocks, dark by default, one surface per screen. See "ReUI design system" below — including the Base UI select trap, which is the single most repeated bug in this repo.
 - Enforce Zod validation on backend endpoints, expose OpenAPI v3.1.0 at `/openapi.json`, `/swagger`, and `/scalar`, and keep endpoints strongly typed.
 - Every new service or view must expose `/health` and emit structured logs/metrics into the mirrored D1 logging layer.
+
 # Agent Workspace Overview
 
 Welcome to the `core-template-cfw-assets-astro-shadcn` template. This is a unified full-stack template combining Cloudflare Workers (Backend & Assets) with Astro and React + Shadcn/ui (Frontend).
@@ -119,6 +124,70 @@ blocks 2026-09-26. Authority: the ReUI Astro React design system
   renders pages without remote bindings. `/api/*` is served by the Hono worker, so
   data and chat only work under `pnpm run build && pnpm exec wrangler dev`.
 
+## The Worker describes itself — five derived vars
+
+A template whose identity is a literal lies about every fork of itself. Nothing
+in the UI, the billing attribution or the health page names this repository
+directly; five vars are DERIVED into `wrangler.jsonc` on every deploy by
+`scripts/set-deploy-vars.mjs` (run by `pnpm run deploy`, drift-checked by
+`pnpm run deploy:vars:check`, asserted by `scripts/selfcheck-deploy-vars.mjs`):
+
+| Var                | Derived from                                                                |
+| ------------------ | --------------------------------------------------------------------------- |
+| `GUARDIAN_PROJECT` | the Worker's `name` — what core-guardian bills against                      |
+| `WORKER_NAME`      | the Worker's `name` — what the UI and health page show                      |
+| `WORKER_URL`       | the shortest custom-domain route, else `https://<name>.hacolby.workers.dev` |
+| `GITHUB_REPO`      | `owner/repo` from the `origin` git remote                                   |
+| `GITHUB_REPO_URL`  | `https://github.com/<owner>/<repo>`                                         |
+
+Rules: **never hardcode any of them**, read them off `env`, and when a value is
+absent (a repo with no remote yet) the var is written as `""` and the surface
+HIDES the thing rather than rendering a broken link. Adding a sixth var means
+adding it to `MANAGED_VARS`, deriving it in `deriveVars`, and planting a
+regression in the self-check that proves the new assertion can go red.
+
+## Session auth — the signing key is derived, never stored
+
+The session cookie's HMAC key comes from `WORKER_API_KEY`, through
+`deriveSessionSigningKey` in `src/shared/session-key.ts`. Do not reintroduce a
+stored key.
+
+**What it replaced, measured in this repo:** `getCookieSigningKey` kept a random
+UUID in the `SESSIONS` KV namespace, minted a new one whenever the read returned
+null, and returned the literal `"default_dev_key_fallback"` whenever KV threw.
+KV is eventually consistent, so a miss is a routine outcome rather than an
+error — and every miss silently invalidated every live cookie. The symptom was
+being forced to log in again on nearly every page, with nothing in the logs. The
+fallback made it worse: sign and verify could run under two different keys
+inside one request pair.
+
+Rules:
+
+- **The key is derived, with no fallback.** An unresolvable `WORKER_API_KEY`
+  throws; it never signs with a placeholder that a later request cannot verify.
+- **Rotating `WORKER_API_KEY` is the sign-everyone-out lever, and the only one.**
+  `scripts/selfcheck-session-key.mjs` asserts that rotation actually revokes.
+- **`SESSION_COOKIE_MAX_AGE` is 400 days** — the ceiling browsers honour
+  (RFC 6265bis; Chrome clamps above it). A larger `Max-Age` is not a longer
+  session, it is a cookie whose stated lifetime and whose `exp` claim disagree.
+- **Never name the credential in anything a person can see** — not the login
+  page, not an error body, not `/docs`. The unbound-secret path logs the name
+  and answers 503 with a generic message.
+
+**Local dev needs the local Secrets Store seeded, once per clone.** Secrets Store
+bindings run in LOCAL mode under `wrangler dev` and `"remote": true` is NOT
+honoured for them (measured 2026-10-04: the binding still reports `local`), so
+every auth path answers 500 with `Secret "WORKER_API_KEY" not found` until you
+seed it:
+
+```bash
+npx wrangler secrets-store secret create 8c42fa70938644e0a8a109744467375f \
+  --name WORKER_API_KEY --scopes workers
+```
+
+Omit `--remote` — that is what makes it the local store. It persists under
+`.wrangler/state`, so it survives restarts but not a state wipe.
+
 ## Template App Surface (reference implementation)
 
 This template ships a real, running app so new projects inherit working
@@ -137,27 +206,28 @@ decoration has no real backing, remove the decoration — do not fake it.
     `guardian/examples.ts`** — worked samples that `pnpm run typecheck`
     compiles, so they cannot drift from the API:
 
-    | Need | Call |
-    |---|---|
-    | One completion | `guardianChat(env, { task, messages, importance?, model?: "auto" })` |
-    | Tool calling | `guardianChat(env, { tools, messages })` → `toolCalls`; sending `tools` adds `capabilities: ["tools"]` for you |
-    | Streaming | `guardianStream` + `readGuardianStream` (full version: `POST /api/chat/stream`) |
-    | Embeddings | `embed(env, texts)` → `number[][]` (bge-small, 100 per call) + `cosineSimilarity` |
-    | Any other Workers AI model | `guardianWorkersAi(env, model, input, task)` |
-    | Preview a route, no spend | `routeGuardian(env, sameOptionsAsTheRun)`; catalog: `guardianUseCases` |
+    | Need                           | Call                                                                                                                                       |
+    | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+    | One completion                 | `guardianChat(env, { task, messages, importance?, model?: "auto" })`                                                                       |
+    | Tool calling                   | `guardianChat(env, { tools, messages })` → `toolCalls`; sending `tools` adds `capabilities: ["tools"]` for you                             |
+    | Streaming                      | `guardianStream` + `readGuardianStream` (full version: `POST /api/chat/stream`)                                                            |
+    | Embeddings                     | `embed(env, texts)` → `number[][]` (bge-small, 100 per call) + `cosineSimilarity`                                                          |
+    | Any other Workers AI model     | `guardianWorkersAi(env, model, input, task)`                                                                                               |
+    | Preview a route, no spend      | `routeGuardian(env, sameOptionsAsTheRun)`; catalog: `guardianUseCases`                                                                     |
     | Jules / Stitch / orchestration | `guardianToolkits` + `guardianTool(env, "jules.open_session", input)`, or raw `guardianJules` / `guardianStitch` / `guardianOrchestration` |
 
     Let guardian route: routing hints or a sentinel `model` (`auto`, `best`,
     `budget`, `cheapest`), never a concrete model unless you must. Every
     wrapper throws `GuardianError` with guardian's own message on a refusal.
     `scripts/selfcheck-guardian-surface.mjs` pins each wrapper to its method.
+
   - **`guardian/config.ts` builds EVERY payload.** `buildRunPayload` is the one
     construction site; `GUARDIAN_TASKS` holds the task labels so the routing log
     stays greppable. Change what is sent to the router by editing that file.
   - **The project name is a var, not a literal.** `vars.GUARDIAN_PROJECT` in
     `wrangler.jsonc` is what core-guardian bills and logs against, and
-    `scripts/set-guardian-project.mjs` keeps it equal to the Worker's own `name`
-    on every deploy (`pnpm run deploy` runs it; `pnpm run guardian:project:check`
+    `scripts/set-deploy-vars.mjs` keeps it equal to the Worker's own `name`
+    on every deploy (`pnpm run deploy` runs it; `pnpm run deploy:vars:check`
     fails on drift). A hardcoded name meant a forked Worker reported its spend
     under the template's name with nothing looking broken — so a missing var now
     THROWS (`GuardianConfigError`) rather than defaulting, `/api/health` reports
@@ -226,7 +296,7 @@ decoration has no real backing, remove the decoration — do not fake it.
     `/settings/{preferences,notifications,webhooks,advanced}` (ReUI `settings-3`).
   - `/docs` + `/playbook` — documentation using the Shiki-backed ReUI CodeBlock.
 - **Schemas** live in `db/schemas/{projects,tasks,stats,settings,notifications,
-  chat,inbox,files}/` (drizzle-zod + `*_TABLE_DESCRIPTION` /
+chat,inbox,files}/` (drizzle-zod + `*_TABLE_DESCRIPTION` /
   `*_COLUMN_DESCRIPTIONS` consumed by `/docs`; register every new table in
   `api/routes/docs.ts`).
   **drizzle-zod maps a `timestamp` column to a bare `z.date()` with NO
@@ -234,7 +304,7 @@ decoration has no real backing, remove the decoration — do not fake it.
   client can send. Coerce at the route (see `jsonDate` in `routes/tasks.ts`)
   whenever a date column must be writable over HTTP.
 - **APIs**: `/api/{projects,tasks,team-notes,settings,webhooks,activity,
-  notifications,dashboard,threads,chat,inbox,files}` — CRUD + `?q=` search +
+notifications,dashboard,threads,chat,inbox,files}` — CRUD + `?q=` search +
   filters + pagination. Health: `/api/health` (D1 + a no-spend
   `CORE_GUARDIAN.useCases()` check that fails the verdict when the binding is
   down).
