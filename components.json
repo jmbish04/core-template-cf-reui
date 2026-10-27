@@ -1,6 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-vega",
+  "style": "base-nova",
   "rsc": false,
   "tsx": true,
   "tailwind": {
@@ -26,6 +26,9 @@
       "headers": {
         "Authorization": "Bearer ${REUI_LICENSE_KEY}"
       }
+    },
+    "@mcpcn": {
+      "url": "https://mcpcn.vercel.app/r/{name}.json"
     }
   }
 }

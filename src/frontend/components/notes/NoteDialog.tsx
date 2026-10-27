@@ -26,13 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { FilterSelect } from "@/components/ui/option-select";
 import { apiSend, ApiError } from "@/lib/api";
 import { PlateEditor, bodyToSnippet } from "@/components/notes";
 
@@ -155,22 +149,20 @@ export function NoteDialog({ trigger, note, onSaved }: NoteDialogProps) {
 
             <div className="grid gap-2">
               <Label>Project</Label>
-              <Select
-                value={projectId || "__none__"}
-                onValueChange={(v) => setProjectId(v === "__none__" ? "" : String(v))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No project</SelectItem>
-                  {projectOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* FilterSelect, not a raw Select: Base UI's Select.Value renders the raw
+                  value unless Select.Root is given `items`, so the hand-written version of
+                  this painted "__none__" in the trigger until the user opened it. The
+                  wrapper passes `items` and resolves the label, and it owns the
+                  "none" sentinel so no call site has to invent one. */}
+              <FilterSelect
+                value={projectId || undefined}
+                onChange={(next) => setProjectId(next ?? "")}
+                options={projectOptions}
+                allLabel="No project"
+                ariaLabel="Project"
+                size="default"
+                className="w-full"
+              />
             </div>
           </div>
 

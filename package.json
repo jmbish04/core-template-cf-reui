@@ -13,7 +13,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "node scripts/ui-guard.mjs && astro build",
     "preview": "wrangler dev",
     "start": "astro dev",
     "fmt": "oxfmt",
@@ -29,6 +29,9 @@
     "deps:update": "corepack pnpm update --latest && corepack pnpm install --no-frozen-lockfile && wrangler types",
     "selfcheck": "for f in scripts/selfcheck*.mjs; do node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON \"$f\" || exit 1; done",
     "typecheck": "tsc --noEmit",
+    "guardian:project": "node scripts/set-guardian-project.mjs",
+    "guardian:project:check": "node scripts/set-guardian-project.mjs --check",
+    "ui-guard": "node scripts/ui-guard.mjs"
     "deploy:vars": "node scripts/set-deploy-vars.mjs",
     "deploy:vars:check": "node scripts/set-deploy-vars.mjs --check"
   },
