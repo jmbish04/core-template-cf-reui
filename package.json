@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit",
     "guardian:project": "node scripts/set-guardian-project.mjs",
     "guardian:project:check": "node scripts/set-guardian-project.mjs --check",
-    "ui-guard": "node scripts/ui-guard.mjs"
+    "ui-guard": "node scripts/ui-guard.mjs",
     "deploy:vars": "node scripts/set-deploy-vars.mjs",
     "deploy:vars:check": "node scripts/set-deploy-vars.mjs --check"
   },
