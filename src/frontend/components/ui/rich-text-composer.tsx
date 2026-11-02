@@ -288,10 +288,10 @@ export function RichTextComposer({
         </div>
 
         {showExtras ? (
-          <span className="ml-1 text-[11px] text-muted-foreground/50">attach · mention</span>
+          <span className="ml-1 text-xs text-muted-foreground/50">attach · mention</span>
         ) : null}
 
-        <span className="ml-auto pr-1 text-[10px] font-medium tracking-wide text-muted-foreground/60 uppercase">
+        <span className="ml-auto pr-1 text-xs font-medium tracking-wide text-muted-foreground/60 uppercase">
           Markdown
         </span>
       </div>
@@ -316,7 +316,7 @@ export function RichTextComposer({
       {/* Footer (only when submitting is wired) */}
       {onSubmit ? (
         <div className="flex items-center justify-between gap-2 bg-muted/10 px-2 py-1.5">
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground/70">
             <Kbd>⌘</Kbd>
             <Kbd>↵</Kbd>
             <span>send</span>
