@@ -34,40 +34,67 @@ source of truth.** Any older instruction that describes Maestro as "a local
 FastAPI/FastMCP program on this Mac" is describing the client half of a system
 that has moved.
 
-# Which door, in order
+# Which door: the MCP. Every time.
 
-**Every door reaches the Worker now. Pick the one in front of you and use it.**
-Measured 2026-10-14 on this Mac: the MCP tools, the `colby-maestro` CLI and
-`maestro-task` all write to `colby-maestro.hacolby.workers.dev`. There is no
-local SQLite lane left to fall into, and no "wrong" client to avoid.
+**Tracking state goes through the colby-maestro MCP. That is the instruction,
+not a preference, and it has been since the ecosystem started.** Tasks, status,
+claims, worklogs, plans, artifacts and feedback are MCP calls. No CLI step
+belongs in that lifecycle.
+
+**Which endpoint to call, in the order an agent walks it:
+`docs/maestro-endpoints.md` in colby-ecosystem.** It carries the lifecycle
+diagram and the 60 agent-facing paths by job. Read it rather than rediscovering
+the catalog.
 
 | Door | Goes to | Use it when |
 |---|---|---|
-| **The Worker's MCP** — `mcp__colby-maestro__search` / `execute`, the claude.ai connector | the Worker's `/mcp`. `codemode.spec().info.title` answers `Colby Maestro API`, 214 paths | **the normal path.** Code mode: `search` the spec, then `execute` with `codemode.request({ method, path, body })` |
-| **`maestro-task`** — the plugin's CLI | the Worker's REST API | binding, status and worklog from a Bash tool, when the plugin is enabled |
-| **`colby-maestro`** — `~/.local/bin/colby-maestro` | the Worker's REST API (`DEFAULT_WORKER_BASE_URL` in `shared/worker_api.py`) | the richer operator surface: briefings, assignees, model inventory |
-| **Plain HTTP** — `/openapi.json` + `Authorization: Bearer $(tokens show WORKER_API_KEY --value-only)` | the Worker | no MCP in this session, or the connector is failing |
+| **The Worker's MCP** — `mcp__colby-maestro__search` / `execute`, the claude.ai connector | the Worker's `/mcp`. `codemode.spec().info.title` answers `Colby Maestro API`, **314 paths** (measured 2026-11-01) | **always.** Code mode: `search` the spec, then `execute` with `codemode.request({ method, path, body })` |
+| **Plain HTTP** — the same paths + `Authorization: Bearer $(tokens show WORKER_API_KEY --value-only)` | the Worker | the one fallback: no code-mode server answers `Colby Maestro API`, or the connector is failing |
+| **`colby-maestro`** — `~/.local/bin/colby-maestro` | the Worker's REST API (`DEFAULT_WORKER_BASE_URL` in `shared/worker_api.py`) | the operator surface a human drives: briefings, assignees, model inventory. Not an agent's tracking door |
+| **`maestro-task`** — the plugin's CLI | the Worker's REST API, plus plugin-local state | **plugin-local jobs only**: `upload-replay`, `ding classify`. These have no Worker route. Never status, worklog or linking |
 | `colby-maestro mcp-serve` — FastMCP on `127.0.0.1:4318` | a local store, and **no client on this machine points at it** | host-local operations only (`orchestrator_*`, `cfg_*`, local models). **Never** a task, status, claim or worklog |
 
-**This table was wrong until 2026-10-14**, and it is worth knowing why. It
-listed `mcp__colby-maestro__*` as "Legacy. Never write tracking state through
-it", which had been true before Justin pointed it at the Worker. Agents read the
-warning, distrusted the correct tool, went looking for a client that was not
-installed, and reported themselves blocked. Whenever this file and the machine
-disagree, **re-measure and then fix this file** — a stale warning routes work to
-nowhere, which is worse than no warning at all.
+## Two things route agents to the CLI, and both are now fixed
+
+**The hooks used to name it.** Until 2026-11-01 four of this plugin's lifecycle
+hooks injected `maestro-task` commands into every session's context —
+`session_start.py`, `post_tool_use.py`, `stop.py` and `user_prompt_submit.py`.
+A hook string reaches the model in every session, so it outranks a briefing the
+session may never load. That, not agent drift, is why sessions kept reaching for
+a CLI while this file already said the MCP was the path. All four now name MCP
+calls, and `tests/test_session_start.py` fails if any of them names the CLI for
+tracking state again.
+
+**One subcommand is unreachable where agents actually work.** Claude Code's
+worktree fence refuses any command carrying the word the linking subcommand uses
+— it is also a shell builtin that can run a string. `~/AGENTS.md` mandates a
+worktree for every repo edit, so in the normal case that command cannot run at
+all. A session handed it has no way forward and ends up asking Justin to run one
+line, which is the handoff this setup exists to avoid.
+
+**To link a session to a task: name the task id in your next message.** The
+prompt hook reads it and links it (`source: prompt`). That works in a worktree.
+With no plugin, `POST /api/agents/heartbeat` with `session_key` and `task_id`
+does the same thing. There is no `/bind` route among the 314 paths; linking is
+per-session plugin state plus that heartbeat.
+
+**Telemetry is a different system. Do not reach for it.** Token usage,
+decisions and transcripts go to `agents.hacolby.app` — a FastAPI service on LXC
+109, reached locally or over the Cloudflare tunnel, not the Worker. The plugin's
+`TokenUsage` hook posts on Stop and SessionEnd. You never call it by hand and
+you never total anything up yourself.
 
 **The connector's name does not say "maestro"** — in the desktop app it is
 `mcp__<uuid>__search` / `__execute`. Identify it before concluding it is absent;
 the probe is in "The Worker connector is invisible to a keyword search" below.
 
-**`maestro-task` is not always installed.** It is on PATH only while the
-`colby-maestro` plugin is enabled, and there is no copy in `~/bin`. Its absence
-does not strand the session: `bind` is not a Worker route at all (there is no
-`/bind` among the 214 paths — binding is per-session plugin state plus a
-heartbeat), so without the plugin, link the session with
-`POST /api/agents/heartbeat` carrying `session_key` and `task_id`, and move
-status or add worklog notes through the ordinary task routes.
+**An earlier version of this table was wrong in the opposite direction**, and it
+is worth knowing why. It listed `mcp__colby-maestro__*` as "Legacy. Never write
+tracking state through it", which had been true before Justin pointed it at the
+Worker. Agents read the warning, distrusted the correct tool, went looking for a
+client that was not installed, and reported themselves blocked. Whenever this
+file and the machine disagree, **re-measure and then fix this file** — a stale
+warning routes work to nowhere, which is worse than no warning at all.
 
 **Discover, do not guess a path** — `search` first, then `execute`.
 ## The Worker connector is invisible to a keyword search. Probe for it.
@@ -254,6 +281,34 @@ The `colby-maestro` plugin (published from colby-ecosystem, enabled in user sett
 - **Guards:** edits in a main checkout or a reused worktree are blocked; symlinking `node_modules` is blocked. A repo that is never worked in a worktree (`~/bin`, `~/system-configs`) opts out with an empty `.claude/worktree-optional` file.
 
 Use `maestro-task` for status and worklog (`maestro-task status <id> review`, `maestro-task log <id> note "..."`), and the `maestro-worklog` skill for which kind to write. The old `maestro-session-end.py` (local-mirror sync) is retired to `~/.claude/hooks/retired/`.
+
+## Playbooks: search before you execute, write one when you solve something
+
+**Colby Maestro holds a playbook library: proven procedures for jobs that recur.**
+A briefing is read once, before the task is known; a playbook is searched when
+the question arrives. Search it before a migration, a renumber, a merge of
+several PRs, a backup, a CI failure, or anything you suspect someone already
+solved.
+
+```js
+async () => (await codemode.request({ method: "GET", path: "/api/playbooks" }))
+  .playbooks.map((p) => [p.id, p.title, p.summary])
+```
+
+`GET /api/playbooks/{id}` returns the body (`revision.body_markdown`), and
+`GET /api/tasks/{taskId}/suggested-playbooks` matches one to a task.
+
+**Measured cost of skipping it, 2026-10-21:** an integrator renumbered four
+migrations with `pnpm run db:generate`, the exact move the playbook
+`renumber-an-applied-migration` forbids. It only got away with it because the
+regenerated files came out byte-identical. Nothing in these briefings mentioned
+playbooks, so it never looked.
+
+**When you solve something that will recur, write the playbook.** In a repo that
+has `docs/playbooks/` (colby-maestro does), draft it there as markdown with front
+matter and sync it with `node scripts/seed-playbooks.mjs --apply <file>`.
+Elsewhere, `POST /api/playbooks` with `title`, `summary` and `markdown`. Name the
+trap, the measurement and the fix, not "be careful with X".
 
 ## Before you finish
 
