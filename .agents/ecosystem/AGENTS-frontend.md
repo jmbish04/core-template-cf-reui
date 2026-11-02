@@ -97,6 +97,38 @@ decision. An opt-out nobody can attribute is the rule being deleted:
 
 Rules 6 and 7 are not checkable by a regex; they are yours to hold.
 
+**The guard now says what it read, because a clean verdict about an unread tree is
+the same defect as a rule that cannot fail.** Every run prints its resolved scan
+roots and each one's file count — `scanned src/ (654) · no .ui-guard.json, roots
+defaulted to src, web` — and two cases that used to pass in silence now exit **2**,
+the usage-error code, alongside scanning nothing:
+
+- a root **written down** in `include` that is not on disk. A defaulted root is not
+  one: the default `["src", "web"]` is a union of the two layouts in this fleet, and
+  no repo has both.
+- a subtree that **declares itself a frontend** (its own `components.json`) and sits
+  outside every scan root. Measured on cloudflare-api-mcp: `chrome-extension/` carries
+  one, so a root run reported 23 violations in 70 files with zero of them under that
+  path, while a run rooted at the subtree reported 8 in 19. Two disjoint trees, two
+  plausible verdicts, and nothing in either output saying half the repo went unread.
+  `"unscanned": ["chrome-extension"]` acknowledges one deliberately — a declaration
+  with a name on it, which is the only kind of skip allowed, never an off-switch.
+
+A file count alone could not close this: `70 files` reads as short only to someone who
+already knows the repo's real count. **A guard against the empty case is not a guard
+against the partial one.**
+
+`components.json` is the right trigger for exit 2 and an incomplete detector. Measured
+across this machine, 68 directories hold 3+ `.tsx` under `src/components`, sit outside
+every scan root, and carry no `components.json` — one of them the same hole with the
+declaration absent (`sgd-hbd-advisor`'s `frontend/`, 53 components, whose repo ROOT holds
+the `components.json`), the rest component libraries that have none by design. So a
+tsx-dense directory outside the roots is **printed and never fatal**: precision earns the
+right to fail a build, a heuristic earns the right to be seen. The search depth is printed
+with it and raisable with `uiTreeDepth`, since an unstated limit is this rule used against
+itself — depth 3 reaches 398 of the 403 in-repo `components.json` files here.
+
+
 **`light-theme` and `font-size-floor` do not share the other rules' exemption set,
 and that is deliberate.** `components/ui/` and `components/reui/` hold both kinds of
 file side by side: the single-file primitives flat in them are hand-edited and shared
@@ -106,6 +138,10 @@ still be theirs — `ui/questionnaire.tsx` imports `@shadcn/react/questionnaire`
 third test is the registry import in the file rather than its path. Anything else that
 breaks the floor is flagged, and `ui-guard-allow font-size-floor: <why>` on the line is
 the answer when it is genuinely one of theirs.
+
+**Client-side navigation is an architecture decision, not a look-and-feel rule** —
+before adding `<ClientRouter />`, read "Client-side navigation replaces the `<body>`
+ELEMENT" below. The default swap destroys an iframe, a WebGL canvas or live media.
 
 ---
 
@@ -276,6 +312,78 @@ Stack, locked:
   `~/AGENTS-cloudflare-workers.md`.
 - **PNPM is the default package manager.** Use `pnpm` for installs, `pnpm dlx
   shadcn@latest add`, `pnpm run <script>`, `pnpm run test`. Never `npm`/`yarn`/`bun`.
+
+---
+
+# Client-side navigation replaces the `<body>` ELEMENT — list what must survive it first
+
+**Astro's `<ClientRouter />` turns a nav into a client-side swap, and its default
+swap calls `oldBody.replaceWith(newBody)`.** Reparenting an iframe reloads its
+document. A WebGL canvas loses its context. Live `<video>` or `<audio>` loses its
+state. So a page element that **is** doing the work — not merely showing it — is
+destroyed by the navigation that was meant to preserve the page.
+
+**The rule.** Before you add `<ClientRouter />`, list what in the page must keep its
+NODE IDENTITY across a navigation: an iframe, live `<video>`/`<audio>`, a WebGL
+canvas, anything holding a device, a socket or a media session. An empty list means
+the default swap is fine. If anything is on it, keep `document.body` and swap its
+children. Do not reach for `transition:persist`, and never claim it covers this
+without naming the browser you measured.
+
+**`transition:persist` is NOT the fix, and this is the half an agent gets wrong.**
+Read on 2026-11-01 in `node_modules/astro/dist/transitions/swap-functions.js`, astro
+7.3.8: `swapBodyElement` lifts every persisted element to `<html>` before the body
+swap. It uses `moveBefore()` where available — Chrome 133+ — and falls back to
+`docEl.appendChild(el)` everywhere else. `appendChild` is a move, so the iframe
+reloads on Safari and Firefox. Astro's own comment in that function names the
+detachment, for the canvas case. Read the file again before you repeat any of this,
+and write down the version you read.
+
+## Where it was hit
+
+core-spotify, PR jmbish04/core-spotify#32, merged as 50fed19. The console plays music
+in the tab: the Spotify Web Playback SDK makes the tab a Connect device by appending
+a 0x0 iframe to `document.body`. `setupPlayerEnv(window)` hardcodes that parent, and
+no SDK option moves it. The bug report was "start a playlist from the mixes page,
+click another page, the music stops". Every full page load destroyed the iframe, so
+the device disappeared and Spotify stopped the track.
+
+## The fix that works on every browser
+
+Keep `document.body` as the SAME NODE and replace only its children and attributes,
+so the element never moves. Everything outside the body stays Astro's own
+`swapFunctions` — `deselectScripts`, `swapRootAttributes`, `swapHeadElements`,
+`saveFocus` — wired in an `astro:before-swap` handler that sets `event.swap`.
+
+**Read `src/frontend/lib/nav-swap.ts` in core-spotify rather than reinventing it.**
+It is 90 lines, 50 of them code. The predicate for which child survives sits in
+`src/shared/nav-swap.ts`, so a test can pin it without a DOM.
+
+Two details that cost time:
+
+1. **`swapRootAttributes` copies the incoming root attributes wholesale, and the
+   server HTML always ships `class="dark"`.** A light-theme choice is therefore
+   undone on every navigation, unless the swap re-reads the stored choice
+   afterwards. That is the same read as the inline theme script in the layout.
+2. **`body.append(...nodeList)` does not typecheck (TS2556).** Move the children
+   through a `DocumentFragment` instead. It is also one insertion rather than one
+   per child, which is what `replaceWith` was.
+
+**The template does not ship this, deliberately.** `jmbish04/core-template-cf-reui`
+renders no `<ClientRouter />` and holds nothing that needs node identity — grepped
+2026-11-01. A repo adds the swap when its own list above is not empty.
+
+## How to prove it in a repo
+
+"It navigated and it looked fine" is not evidence. Measure both directions, the way
+core-spotify did, against the built Worker in a browser:
+
+1. Hold a reference to the element, and attach a `load` listener to it.
+2. Navigate, then assert ZERO load events and that `document.body` is the identical node.
+3. Plant a body-replacing swap, navigate again, and confirm the element leaves the document.
+
+Step 3 is the control, and it is not optional. Without it the test stays green when
+the swap is deleted — see "a test that cannot fail is not a test" in `~/AGENTS.md`.
 
 ---
 

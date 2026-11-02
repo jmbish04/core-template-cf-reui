@@ -76,17 +76,54 @@ degrades (`AGENTS-proxmox.md` → "GitHub Actions runners").
 
 | Tier | Runs on | When |
 | --- | --- | --- |
-| 1 (default) | GitHub-hosted `ubuntu-latest` | `CI_RUNNER` / `AGENTS_SYNC_RUNNER` unset or empty |
+| 1 (default) | GitHub-hosted `ubuntu-latest` | `CI_RUNNER` / `AGENTS_SYNC_RUNNER` unset, empty, or anything that is not a JSON array |
 | 2 | `github-actions-1` (lxc/135, `192.168.1.197:8791`) | variable set to `["self-hosted","Linux","X64","proxmox-actions"]` |
 | 3 | `github-actions-2` (lxc/139, `192.168.1.208:8791`) | lxc/135 overflow or down; the two hosts forward to each other |
 
 **Every job uses this form, with `ubuntu-latest` as the fallback:**
 
 ```yaml
-runs-on: ${{ vars.CI_RUNNER && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest' }}
+runs-on: ${{ startsWith(vars.CI_RUNNER, '[') && endsWith(vars.CI_RUNNER, ']') && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest' }}
 ```
 
 `agents-sync.yml` uses `vars.AGENTS_SYNC_RUNNER` in the same shape.
+
+**The brackets are checked before `fromJSON` is reached, and that is the whole point.**
+GitHub's cloud runners are the default, whatever the variable holds (Justin, 2026-11-02:
+the hosted budget is raised, and the Proxmox boxes are for when hosted fails). Only one
+value sends a job to Proxmox: a JSON array of that repo's runner labels.
+
+The shape this replaced was `vars.CI_RUNNER && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest'`.
+It fell back to hosted for unset and empty, and for nothing else — measured against
+GitHub's own engine (`@actions/expressions` 0.3.61):
+
+| `CI_RUNNER` | the old form | this form |
+| --- | --- | --- |
+| unset | `ubuntu-latest` | `ubuntu-latest` |
+| `""` | `ubuntu-latest` | `ubuntu-latest` |
+| `self-hosted` | **threw, failing the job** | `ubuntu-latest` |
+| `{"a":1}` | **`Object`**, a label no runner has | `ubuntu-latest` |
+| `["self-hosted","Linux","X64","proxmox-actions"]` | the labels | the labels |
+| `[oops]` | **threw** | **threw** |
+
+The fourth row is the worse of the two failures: a `runs-on` of `Object` does not fail
+red, it sits queued and invisible. A garbled variable is not a request to leave the
+default, so it lands on hosted instead of taking the repo's CI down.
+
+**The last row is the limit, and it is not fixable here.** Expression syntax cannot
+validate JSON, so the brackets narrow the failure from "any non-JSON string" to "a value
+shaped like an array whose contents are not JSON", and no further.
+
+`scripts/test-runner-expression` carries that table as assertions against GitHub's own
+engine, reading the expressions out of the files that ship them. It takes extra paths, so a
+repo's own workflow is checked with the same assertions:
+`node scripts/test-runner-expression .github/workflows/ci.yml`.
+
+**It checks every `runs-on` in a file, not the first one.** A workflow with four jobs where
+only job one is guarded reads exactly like a workflow that is fully guarded, so a test that
+reads one line per file is an instrument that cannot fail. Measured on a two-job file: the
+single-line version printed `all assertions passed` while job two still carried the shape
+the test exists to reject.
 
 **Never hardcode `runs-on: self-hosted` or `[self-hosted, Linux, X64, proxmox-actions]`.**
 A hardcoded label traps the repo on the Proxmox runners while Tier 1 is the live

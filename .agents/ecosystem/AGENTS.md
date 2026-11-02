@@ -218,6 +218,17 @@ delimited managed block of pointers at the top. Everything outside that block is
 left byte-for-byte alone, so the effective briefing is **local `AGENTS.md` +
 colby-ecosystem's**, not one replacing the other.
 
+**These briefings are themselves generated — the rendered file is an artifact.**
+All 11 machine-wide targets, every `AGENTS*.md` above plus `~/.claude/CLAUDE.md`,
+are rendered from `generator/blocks/*.md` through `generator/generate.mjs` and
+`generator/targets.json` in colby-ecosystem. So a change to a briefing is a change
+to a **block**, and editing a rendered file fails the repo's own
+`briefings match their blocks` gate: `node generator/generate.mjs check` names the
+target `STALE` and CI goes red with no other failure. Measured twice —
+`decisions/2026-10-15-claude-pipeline-triage.md`, and again on 2026-11-02 in PR 128,
+that time by following `scripts/sync-agents`' premise that the home copy is the
+working copy. "End of session" below carries the loop to run.
+
 ## Installing it — `gh-tools agents-sync`
 
 Do this yourself; it is not a hand-off. One command, in the repo you are working in:
@@ -704,6 +715,52 @@ in the data, opposite in meaning.
   components is right — reporting a box UNHEALTHY forever for a role it never
   uses just trains people to ignore red. Derive it from a declaration, not from
   absence.)
+
+## A scan that read less than it claimed looks exactly like a clean one
+
+The rules above are about a check that runs and reports the wrong thing. This one
+is about a check that **covered less ground than you think** and reported clean
+for that reason. It is the same defect one step earlier, and it is harder to see,
+because the output of the partial scan and the complete one are the same
+sentence.
+
+**The number that makes the point:** "14 of 327 checkouts carry `.git` as a file"
+and "230 of 629" are both correct for the same fleet on the same day — the first
+counts top-level directories, the second recurses. Nothing was measured
+incorrectly. A reader handed either one cannot tell which, and the gap between
+them is 16x. Three rules follow, and all three are cheap:
+
+- **Never suppress a fetch's stderr.** `git fetch … 2>/dev/null` turns a network
+  failure into a stale ref that reads as fresh, and prints nothing at all. On
+  2026-11-02, port 22 to github.com was timing out on this machine while 443
+  answered; every suppressed fetch in that window silently measured whatever was
+  already on disk, and its caller reported a SHA. Fetch into a named ref and
+  compare it with what you had, so "unchanged" is a measurement rather than an
+  assumption.
+- **Enumerate a fleet from the server, not from disk.** One
+  `gh api search/code` over the default branches answered in a single call what
+  four passes over local checkouts got wrong — 4 repos, then 7, against 10. A
+  clone can be stale in either direction: its working tree behind its
+  `origin/main`, or its `origin/main` behind the remote. Read `total_count`
+  before the items and compare it with the rows you consumed; a filtered page one
+  reads exactly like a complete answer. A count of 26 came from page one of 277.
+- **Say which tree you measured, by ref.** A count with no SHA beside it cannot
+  be checked by the next reader, and that is how a branch 38 commits behind
+  `main` got quoted as the state of `main` — 143 violations for a tree that has
+  none.
+
+**Corollary for anything that scans:** print the roots it resolved and the bound
+it stopped at, so a partial scan is visible in its own output rather than only to
+someone who already knows the right answer — `scanned src/ (654) · no
+.ui-guard.json, roots defaulted to src, web · looked 3 deep for other frontends`.
+And a scanner that is never invoked prints nothing at all, so something has to
+assert that the check ran: 41 repos vendored `ui-guard.mjs` and 10 ran it.
+
+Two mechanical causes worth keeping, because both are one character wide:
+`[ -d "$repo/.git" ]` skips a linked worktree, whose `.git` is a file — use `-e`,
+then dedupe by `git rev-parse --git-common-dir`. And a pipeline's `$?` is the
+*last* command's, so `cmd 2>&1 | head; echo $?` reports `head` succeeding while
+`cmd` failed.
 
 ---
 
@@ -1443,6 +1500,26 @@ nobody reads is, from the operator's side, work nobody did.
 If yes to any: **present the proposals and ask Justin to review.** Do not edit
 `~/AGENTS.md` or a template unprompted from a session about something else — say
 what you would change and why, and let him decide.
+
+**When he approves one, edit the BLOCK, not the briefing.** `~/AGENTS.md`, the
+`AGENTS-*.md` topic files and `~/.claude/CLAUDE.md` are all rendered from
+`generator/blocks/*.md` in colby-ecosystem, so the home copy and the repo copy are
+both output. The loop, and `apply` is not the whole of it:
+
+```bash
+node generator/generate.mjs apply            # renders into generator/out/, writes nothing tracked
+cp generator/out/AGENTS.md AGENTS.md         # the render over each target it changed
+node generator/generate.mjs check            # must say 11 targets aligned
+```
+
+`apply` only ever writes `generator/out/` or the system temp directory, so the gate
+stays red until you copy the render over its target — step 2 is the one that is easy
+to miss, because step 1 prints `wrote AGENTS.md` either way. The repo's
+`briefings match their blocks` gate fails on a rendered-file edit and names the stale
+target. Two sessions have now lost a build to this, the second on 2026-11-02 (PR 128)
+by doing exactly what `scripts/sync-agents` describes. One more trap: a local checkout
+whose blocks are as stale as its rendered files reports every target aligned and
+proves nothing about `main`, so render against current `main`.
 
 **`backpass` is the evidence-backed version of step 1, and it is installed.** It reads
 the sessions that actually ran on this machine and proposes edits to `~/AGENTS.md`
