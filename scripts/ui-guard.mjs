@@ -577,6 +577,108 @@ function* walk(root, dir) {
   }
 }
 
+// Depth 3 covers 398 of the 403 in-repo components.json files in this fleet (histogram by
+// depth: 0:302, 1:45, 2:40, 3:11, 4:3, 7:1, 9:1). The five it misses are vendored samples
+// and generated output. The bound is PRINTED on every run and raisable with `uiTreeDepth`,
+// because an unstated limit is this file's own argument used against it - a first count of
+// that histogram with `find -maxdepth 6` returned 229 of 425 and read like a measurement.
+export const UI_TREE_DEPTH = 3;
+
+/**
+ * Every directory holding its own `components.json`, to a bounded depth.
+ *
+ * `components.json` is a DECLARATION that a subtree is a shadcn/ReUI frontend, which is why
+ * this looks for it rather than guessing from file extensions. A subtree that declares
+ * itself a frontend and sits outside every scan root is the partial-scan hole: the walk
+ * never descends into it, and the verdict says `0 violations` about a tree it never opened.
+ *
+ * Measured on cloudflare-api-mcp: `chrome-extension/` carries its own components.json and 23
+ * source files, `include` defaults to ["src", "web"], and the repo has no .ui-guard.json. A
+ * root run reported 23 violations in 70 files with ZERO of them under that path, while a run
+ * rooted at the subtree reported 8 in 19. Two disjoint trees, two plausible verdicts, and
+ * nothing in either output saying half the repo was never read. `tests/` in the same repo
+ * holds 23 source files and no components.json, and is correctly not a frontend root.
+ */
+export function findUiTrees(root, depth = UI_TREE_DEPTH) {
+  const out = [];
+  const visit = (dir, rel, left) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    if (rel && entries.some((e) => e.isFile() && e.name === "components.json")) out.push(rel);
+    if (left === 0) return;
+    for (const e of entries) {
+      if (!e.isDirectory() || SKIP_DIRS.has(e.name) || e.name.startsWith(".")) continue;
+      visit(join(dir, e.name), rel ? `${rel}/${e.name}` : e.name, left - 1);
+    }
+  };
+  visit(root, "", depth);
+  return out;
+}
+
+
+/**
+ * A directory outside every scan root that LOOKS like a frontend without declaring one.
+ *
+ * `components.json` is the right trigger for exit 2 and an incomplete detector, measured
+ * across this fleet: 68 directories hold 3+ tsx under `src/components`, sit outside the scan
+ * roots, and carry no components.json. One of them is this exact hole with the declaration
+ * absent - `sgd-hbd-advisor :: frontend`, 53 tsx, whose REPO ROOT has a components.json: the
+ * root declares a frontend, the walk reads `src/`, and `frontend/` is never opened. The rest
+ * are component libraries, which have none by design because they are not shadcn install
+ * targets (`uitripled :: packages/components/react-shadcn`, 211 tsx).
+ *
+ * So this is a guess, and a guess may not fail anybody's build - it prints and nothing more.
+ * Precision earns the right to exit non-zero; a heuristic earns the right to be seen. The
+ * `src/components` criterion is also what keeps a `tests/` directory out on its own merits.
+ */
+export function findDenseTrees(root, depth = UI_TREE_DEPTH, minTsx = 3) {
+  const out = [];
+  const countTsx = (dir) => {
+    let n = 0;
+    const walkDir = (d) => {
+      let entries;
+      try {
+        entries = readdirSync(d, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        if (e.isDirectory()) {
+          if (!SKIP_DIRS.has(e.name)) walkDir(join(d, e.name));
+        } else if (e.name.endsWith(".tsx")) n++;
+      }
+    };
+    walkDir(dir);
+    return n;
+  };
+  const visit = (dir, rel, left) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    if (rel && existsSync(join(dir, "src", "components"))) {
+      const n = countTsx(join(dir, "src", "components"));
+      if (n >= minTsx) {
+        out.push({ dir: rel, tsx: n });
+        return;
+      }
+    }
+    if (left === 0) return;
+    for (const e of entries) {
+      if (!e.isDirectory() || SKIP_DIRS.has(e.name) || e.name.startsWith(".")) continue;
+      visit(join(dir, e.name), rel ? `${rel}/${e.name}` : e.name, left - 1);
+    }
+  };
+  visit(root, "", depth);
+  return out;
+}
+
 /**
  * The repo's primitive layer: which shadcn style `components.json` declares.
  *
@@ -612,6 +714,15 @@ export function runWithStats(root = ".") {
   const cfgPath = join(root, ".ui-guard.json");
   const cfg = existsSync(cfgPath) ? JSON.parse(readFileSync(cfgPath, "utf8")) : {};
   const include = cfg.include ?? ["src", "web"];
+  // Two different facts, and conflating them made the CLI say "no .ui-guard.json" about a
+  // repo that has one. Measured on harness-insights, whose config excludes two directories
+  // and sets no `include`: the run printed "no .ui-guard.json, roots defaulted to src, web"
+  // while that very file was the reason a flagged-looking site was not scanned. A reader
+  // checking why a file was skipped was told the config did not exist.
+  const hasConfig = existsSync(cfgPath);
+  const declaredDefault = cfg.include === undefined;
+  const acknowledged = new Set(cfg.unscanned ?? []);
+  const uiTreeDepth = cfg.uiTreeDepth ?? UI_TREE_DEPTH;
   const exclude = (cfg.exclude ?? []).map(globRe);
   const off = new Set(Object.entries(cfg.rules ?? {}).filter(([, v]) => v === "off").map(([k]) => k));
   const migration = cfg.migration ?? {};
@@ -626,8 +737,14 @@ export function runWithStats(root = ".") {
   let togglesDark = false;
   let scanned = 0;
 
+  const roots = [];
+  const missingRoots = [];
   for (const dir of include) {
-    if (!existsSync(join(root, dir))) continue;
+    if (!existsSync(join(root, dir))) {
+      missingRoots.push(dir);
+      continue;
+    }
+    const before = scanned;
     for (const file of walk(root, join(root, dir))) {
       const rel = relative(root, file).split(sep).join("/");
       const vendored = VENDORED.some((v) => rel.includes(v));
@@ -651,6 +768,7 @@ export function runWithStats(root = ".") {
         push(rel, v);
       }
     }
+    roots.push({ dir, files: scanned - before });
   }
 
   if (!togglesDark) for (const [rel, v] of pinnedDark) push(rel, v);
@@ -670,23 +788,92 @@ export function runWithStats(root = ".") {
     }
   }
 
+  // A declared UI tree that no scan root covers. `unscanned` in .ui-guard.json acknowledges
+  // one deliberately - a declaration with a name on it, never an off-switch, because the
+  // rule the briefings state is that a check may skip what it has DECLARED it does not
+  // need, and may never skip something merely because it could not find it.
+  const covered = (t) => include.some((d) => t === d || t.startsWith(`${d}/`));
+  const unscannedUiTrees = findUiTrees(root, uiTreeDepth).filter(
+    (t) => !covered(t) && !acknowledged.has(t),
+  );
+  // A guess, so it prints and never fails a build. See findDenseTrees.
+  const denseTrees = findDenseTrees(root, uiTreeDepth).filter(
+    (t) => !covered(t.dir) && !acknowledged.has(t.dir) && !unscannedUiTrees.includes(t.dir),
+  );
+
   // `0 violations` from scanning NOTHING is byte-identical to `0 violations` from a clean
   // repo, and it exits 0 either way - a typo in the path, an `include` pointing at a
   // directory that moved, or a tree that was never checked out all read as a pass. That is
   // the instrument that cannot fail, so the count travels with the verdict and the CLI
   // refuses to call it clean. Measured in the PR that added this: `ui-guard.mjs
   // /path/that/does/not/exist` printed `0 violation(s)` and exited 0.
-  return { violations, scanned };
+  //
+  // Two neighbouring holes the file count does NOT close, both found after that change
+  // shipped: a declared root absent from disk is skipped in silence, and a subtree that
+  // declares itself a frontend outside every root is never opened. Both report clean, and
+  // `70 files` only reads as short to someone who already knows the repo's real count. So
+  // the roots travel with the verdict too, and both join the usage-error exit.
+  return {
+    violations, scanned, roots, missingRoots, unscannedUiTrees, denseTrees,
+    declaredDefault, hasConfig, uiTreeDepth,
+    excluded: cfg.exclude ?? [],
+  };
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("ui-guard.mjs")) {
   const args = process.argv.slice(2);
   const root = args.find((a) => !a.startsWith("--")) ?? ".";
-  const { violations, scanned } = runWithStats(root);
+  const {
+    violations, scanned, roots, missingRoots, unscannedUiTrees, denseTrees,
+    declaredDefault, hasConfig, uiTreeDepth, excluded,
+  } = runWithStats(root);
   if (args.includes("--json")) console.log(JSON.stringify(violations, null, 2));
   else for (const v of violations) console.log(`${v.file}:${v.line}: ${v.rule}: ${v.message}`);
   if (!args.includes("--json")) {
-    console.error(`ui-guard: ${violations.length} violation(s) in ${scanned} file(s)`);
+    const where = roots.length
+      ? roots.map((r) => `${r.dir}/ (${r.files})`).join(", ")
+      : "nothing";
+    console.error(
+      `ui-guard: ${violations.length} violation(s) in ${scanned} file(s) — scanned ${where}` +
+        `${
+          !hasConfig
+            ? " · no .ui-guard.json, roots defaulted to src, web"
+            : declaredDefault
+              ? " · .ui-guard.json sets no `include`, roots defaulted to src, web"
+              : " · roots from .ui-guard.json"
+        }` +
+        `${excluded.length ? ` · excluding ${excluded.join(", ")}` : ""}` +
+        ` · looked ${uiTreeDepth} deep for other frontends`,
+    );
+    // A guess prints and nothing more - it may not fail anybody's build.
+    for (const t of denseTrees) {
+      console.error(
+        `ui-guard: note — "${t.dir}/" holds ${t.tsx} .tsx under src/components, sits outside ` +
+          `every scan root, and declares no components.json. Not read. If it is a frontend, ` +
+          `add it to \`include\`; if not, \`unscanned\` silences this note.`,
+      );
+    }
+  }
+  // Only a root somebody WROTE DOWN can be missing. The default is ["src", "web"] - a union
+  // of the two layouts in this fleet, not a claim that both exist - and no repo in it has
+  // both, so failing on a defaulted root fires on every repo at once. Measured while
+  // writing this: the first version did exactly that, on all four trees.
+  if (missingRoots.length && !declaredDefault) {
+    console.error(
+      `ui-guard: scan root(s) ${missingRoots.map((d) => `"${d}"`).join(", ")} do not exist ` +
+        `under "${root}" and were skipped in silence, so this verdict covers less than it ` +
+        `claims. Fix the \`include\` in .ui-guard.json, or check out the missing tree.`,
+    );
+    process.exit(2);
+  }
+  if (unscannedUiTrees.length) {
+    console.error(
+      `ui-guard: ${unscannedUiTrees.map((t) => `"${t}/"`).join(", ")} declare(s) a frontend ` +
+        `(its own components.json) and sits outside every scan root, so none of it was read. ` +
+        `Add it to \`include\` in .ui-guard.json, or acknowledge it in \`unscanned\` if it ` +
+        `is guarded separately.`,
+    );
+    process.exit(2);
   }
   if (!scanned) {
     console.error(

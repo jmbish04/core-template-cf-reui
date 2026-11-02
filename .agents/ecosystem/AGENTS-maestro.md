@@ -193,8 +193,24 @@ script, `tokens show WORKER_API_KEY --value-only`, or `requireSecret`/
 `require_secret` from the scaffolded SDK (`tokens agent-onboarding`). Never
 hardcode it, never read it from a `.env`.
 
-**Measured API traps (retested 2026-09-13):**
+**Measured API traps** — the worklog pair measured 2026-11-02, the rest retested
+2026-09-13. Each carries its own date, because a single date on a growing list
+goes stale and then misdates everything under it:
 
+- **A worklog POST takes `body`, not `note` — and the wrong name is ACCEPTED.**
+  `POST /api/tasks/{id}/worklog` with `{ kind, note }` creates the entry with the
+  right kind, the right timestamp and an **empty body**. Nothing reads as a
+  failure. The error that names it, `body: Supply body or body_doc.`, fires only
+  when the text field is missing altogether, so a request holding both a valid
+  `kind` and a `note` never produces it. Measured 2026-11-02 on core-spotify:
+  three entries at `bodyLen` 0 beside a correct earlier one at 1,010 characters,
+  and all three had been reported to Justin as recorded. Send `body`, or
+  `body_doc`.
+- **`kind` is a closed enum**: `note | progress | status_change | handoff |
+  blocker | claim`. Anything else is refused outright — `kind: Invalid option:
+  expected one of …`. `decision` is the one to watch, because this chapter's own
+  guidance ("what you decided and why") reads like a kind name, and that is what
+  an agent reached for twice in one session.
 - **`limit` is ignored.** `?limit=1` returned all 177 tasks; `?status_category=-done&limit=2`
   returned 112. Slice client-side, and never assume a list you asked to cap is capped.
 - **`POST /api/tasks` requires `task_type` *and* `priority` explicitly.** Omitting
@@ -205,6 +221,18 @@ hardcode it, never read it from a `.env`.
 - *(Fixed 2026-09-13: the unscoped `GET /api/tasks` used to 500 and now returns
   200. Scoping with `project_key` is still cheaper, and `GET /api/briefing` is
   still the better call for "what am I supposed to be doing".)*
+
+**Never coalesce an API response into a success string.** The two worklog traps
+above both reached Justin as "recorded" because the call site was
+`log?.entry?.id ?? "written"`. One failure stored an empty entry and the other
+was refused outright; the `??` printed the same word over both. The API answered
+honestly every time — the fallback was written over its answer. Return the
+response and read its `status`.
+
+This is the same defect the PreToolUse script lint already rejects in Bash — a
+`curl -s` into a blind parser, `|| true` on a build, a credential captured with
+its error silenced. **The lint cannot see inside a code-mode `execute` body**, so
+in an `execute` it is yours to hold.
 
 Open findings are filed as task `0fd70cecfba2` in the `colby-maestro` project.
 
@@ -312,17 +340,29 @@ trap, the measurement and the fix, not "be careful with X".
 
 ## Before you finish
 
-One curl, and it is the difference between work that is tracked and work that
-only looks tracked:
+One read, and it is the difference between work that is tracked and work that
+only looks tracked. **Read the worklog itself, and check your entry has TEXT:**
 
 ```bash
 curl -s -H "Authorization: Bearer $K" "$B/api/tasks/<task_id>" | head -c 200
+curl -s -H "Authorization: Bearer $K" "$B/api/tasks/<task_id>/worklog" \
+  | python3 -c "import json,sys
+for e in json.load(sys.stdin).get('entries', []):
+    print(e['created_at'], e['kind'], repr(e.get('author')), len(e.get('body') or ''))"
 ```
 
 Your task's status and your final worklog entry should be visible **on the
 Worker**. If they are not, fix that before you end the session — an agent that
 recorded everything faithfully into a store nobody reads has, from the operator's
 side, recorded nothing.
+
+**"The entry exists" is not the check.** It was the check as this section used to
+be written, and an empty entry passes it: a row with the right kind and the right
+timestamp and no body satisfies every word of it. Measured 2026-11-02, which is
+why the command above prints the body LENGTH — a zero there is the `note`-instead-
+of-`body` trap in the API traps section, and the fix is to re-post with `body`.
+The `author` column is what tells your own entries apart from `system` status
+changes and `github` merge notices, so count only your own.
 
 **If you notice the drift growing, do not quietly fix it.** Append what you
 measured to task `maestro-store-drift-backfill` in the `colby-maestro` project.
