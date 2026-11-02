@@ -348,7 +348,7 @@ export function NotesWorkspace() {
               <Button variant="outline" size="icon" aria-label="Filter notes" className="relative shrink-0">
                 <SlidersHorizontalIcon aria-hidden="true" />
                 {activeFacets > 0 && (
-                  <span className="bg-primary text-primary-foreground absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full text-[10px] font-medium">
+                  <span className="bg-primary text-primary-foreground absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full text-xs font-medium">
                     {activeFacets}
                   </span>
                 )}
