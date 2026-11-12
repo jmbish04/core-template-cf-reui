@@ -37,7 +37,7 @@ that has moved.
 # Which door: the MCP. Every time.
 
 **Tracking state goes through the colby-maestro MCP. That is the instruction,
-not a preference, and it has been since the ecosystem started.** Tasks, status,
+not a preference, and it has been since the ecosystem started.** Issues, status,
 claims, worklogs, plans, artifacts and feedback are MCP calls. No CLI step
 belongs in that lifecycle.
 
@@ -51,8 +51,8 @@ the catalog.
 | **The Worker's MCP** — `mcp__colby-maestro__search` / `execute`, the claude.ai connector | the Worker's `/mcp`. `codemode.spec().info.title` answers `Colby Maestro API`, **314 paths** (measured 2026-11-01) | **always.** Code mode: `search` the spec, then `execute` with `codemode.request({ method, path, body })` |
 | **Plain HTTP** — the same paths + `Authorization: Bearer $(tokens show WORKER_API_KEY --value-only)` | the Worker | the one fallback: no code-mode server answers `Colby Maestro API`, or the connector is failing |
 | **`colby-maestro`** — `~/.local/bin/colby-maestro` | the Worker's REST API (`DEFAULT_WORKER_BASE_URL` in `shared/worker_api.py`) | the operator surface a human drives: briefings, assignees, model inventory. Not an agent's tracking door |
-| **`maestro-task`** — the plugin's CLI | the Worker's REST API, plus plugin-local state | **plugin-local jobs only**: `upload-replay`, `ding classify`. These have no Worker route. Never status, worklog or linking |
-| `colby-maestro mcp-serve` — FastMCP on `127.0.0.1:4318` | a local store, and **no client on this machine points at it** | host-local operations only (`orchestrator_*`, `cfg_*`, local models). **Never** a task, status, claim or worklog |
+| **`maestro-issue`** — the plugin's CLI | the Worker's REST API, plus plugin-local state | **plugin-local jobs only**: `upload-replay`, `ding classify`. These have no Worker route. Never status, worklog or linking |
+| `colby-maestro mcp-serve` — FastMCP on `127.0.0.1:4318` | a local store, and **no client on this machine points at it** | host-local operations only (`orchestrator_*`, `cfg_*`, local models). **Never** an issue, status, claim or worklog |
 
 ## Two things route agents to the CLI, and both are now fixed
 
@@ -72,7 +72,7 @@ worktree for every repo edit, so in the normal case that command cannot run at
 all. A session handed it has no way forward and ends up asking Justin to run one
 line, which is the handoff this setup exists to avoid.
 
-**To link a session to a task: name the task id in your next message.** The
+**To link a session to an issue: name the integer issue_id in your next message.** The
 prompt hook reads it and links it (`source: prompt`). That works in a worktree.
 With no plugin, `POST /api/agents/heartbeat` with `session_key` and `task_id`
 does the same thing. There is no `/bind` route among the 314 paths; linking is
@@ -141,7 +141,7 @@ to start, never as a fixed address.
 Once identified, `execute` speaks the same REST surface documented below:
 
 ```js
-async () => await codemode.request({ method: "GET", path: "/api/tasks?project_key=colby-ecosystem" })
+async () => await codemode.request({ method: "GET", path: "/api/issues?project_key=colby-ecosystem" })
 ```
 
 **Only after every code-mode server has answered with something that is not
@@ -171,7 +171,7 @@ So **never write tracking state there.** Write it through the Worker connector,
 or over REST (below) when the connector is genuinely unavailable. **Do not casually run `worker_sync_tool` to push
 one task:** it reconciles everything. On 2026-09-12 its dry run showed 96 tasks
 to push and 53 to pull against 126 in sync, which is a fleet-wide change, not
-your task. `dry_run` defaults to `True` for exactly this reason — read the plan,
+your issue. `dry_run` defaults to `True` for exactly this reason — read the plan,
 and if it is bigger than your own work, flag it instead of applying it.
 
 **2. REST on the Worker when MCP is offline or degraded.** Do not stop working
@@ -181,10 +181,10 @@ and do not ask Justin to restart anything:
 K=$(tokens show WORKER_API_KEY --value-only)
 B=https://colby-maestro.hacolby.workers.dev
 curl -s -H "Authorization: Bearer $K" "$B/api/briefing?repo_path=$PWD"
-curl -s -H "Authorization: Bearer $K" "$B/api/tasks?project_key=<key>"
+curl -s -H "Authorization: Bearer $K" "$B/api/issues?project_key=<key>"
 curl -s -X POST -H "Authorization: Bearer $K" -H 'Content-Type: application/json' \
      -d '{"project_key":"…","repo_path":"/abs/path","title":"…","status":"in_progress","assignee_id":"…"}' \
-     "$B/api/tasks"
+     "$B/api/issues"
 ```
 
 `Authorization: Bearer` and `x-api-key` both work; unauthenticated is 401.
@@ -198,7 +198,7 @@ hardcode it, never read it from a `.env`.
 goes stale and then misdates everything under it:
 
 - **A worklog POST takes `body`, not `note` — and the wrong name is ACCEPTED.**
-  `POST /api/tasks/{id}/worklog` with `{ kind, note }` creates the entry with the
+  `POST /api/issues/{issueId}/worklog` with `{ kind, note }` creates the entry with the
   right kind, the right timestamp and an **empty body**. Nothing reads as a
   failure. The error that names it, `body: Supply body or body_doc.`, fires only
   when the text field is missing altogether, so a request holding both a valid
@@ -213,10 +213,10 @@ goes stale and then misdates everything under it:
   an agent reached for twice in one session.
 - **`limit` is ignored.** `?limit=1` returned all 177 tasks; `?status_category=-done&limit=2`
   returned 112. Slice client-side, and never assume a list you asked to cap is capped.
-- **`POST /api/tasks` requires `task_type` *and* `priority` explicitly.** Omitting
+- **`POST /api/issues` requires `task_type` *and* `priority` explicitly.** Omitting
   them is a 400 (`priority: Invalid input: expected string, received undefined;
   task_type: …`). The legacy local `task_upsert_tool` used to default both, but
-  the Worker connector REST API does not. Send `"task_type": "task"` and a
+  the Worker connector REST API does not. Send `"task_type": "chore"` (or the type that fits; `task` is retired and refused) and a
   `priority` unless you mean something else.
 - *(Fixed 2026-09-13: the unscoped `GET /api/tasks` used to 500 and now returns
   200. Scoping with `project_key` is still cheaper, and `GET /api/briefing` is
@@ -234,7 +234,7 @@ This is the same defect the PreToolUse script lint already rejects in Bash — a
 its error silenced. **The lint cannot see inside a code-mode `execute` body**, so
 in an `execute` it is yours to hold.
 
-Open findings are filed as task `0fd70cecfba2` in the `colby-maestro` project.
+Open findings are filed as issue `100000273` in the `colby-maestro` project.
 
 **3. The `colby-maestro` CLI — legacy.** Do not use it to create or update
 tracking state; use the connector. It remains useful to a human for
@@ -247,9 +247,9 @@ before repeating it as a diagnosis.
 
 **The Worker is the source of truth. A write that only reaches the local mirror
 is invisible** — to the console Justin reads, to every other session, and to the
-next agent that picks the task up. A background reconciler now pushes the local
-mirror every five minutes, but it **cannot push a new task at all**: the Worker
-requires a plan heading and the local tools have no field for one, so a task born
+next agent that picks the issue up. A background reconciler now pushes the local
+mirror every five minutes, but it **cannot push a new issue at all**: the Worker
+requires a plan heading and the local tools have no field for one, so an issue born
 locally is refused on every pass, forever. Before the reconciler existed, nothing
 synced until someone ran `worker_sync_tool` by hand. On 2026-09-13
 the two stores were 223 local / 187 remote, 96 tasks unpushed and 54 unpulled,
@@ -257,8 +257,8 @@ and they had grown worse, not better, over a day.
 
 **As of 2026-10-14 the drift can no longer grow, because nothing an agent uses
 writes to the mirror.** `~/.config/colby-mcp/servers.json` points
-`colby-maestro` at the Worker's `/mcp`, the `colby-maestro` CLI's task commands
-go through `shared/worker_api.py` to the Worker, and `maestro-task` posts to the
+`colby-maestro` at the Worker's `/mcp`, the `colby-maestro` CLI's issue commands
+go through `shared/worker_api.py` to the Worker, and `maestro-issue` posts to the
 Worker. The numbers below are history, kept because they say what the failure
 cost. Read this section as "the Worker is the source of truth", not as a reason
 to distrust the tool in your hand.
@@ -267,14 +267,14 @@ So the default is: **write tracking state through the Worker.**
 
 | | Lives on | Use |
 |---|---|---|
-| Tasks, claim/release, worklog, briefing, rooms, tags, taxonomy, assignees, artifacts | **Both** — full REST surface on the Worker | **Write through the Worker.** Read from whichever is handy |
+| Issues, claim/release, worklog, briefing, rooms, tags, taxonomy, assignees, artifacts | **Both** — full REST surface on the Worker | **Write through the Worker.** Read from whichever is handy |
 | `github_*`, `jules_*`, `orchestrator_*`, `review_*`, `cfg_*`, `worker_sync_tool` | **Local only** (they act on this host) | Local MCP — they create no tracker drift |
 
 ## The three rules
 
 **1. Write tracking state through the Worker when you can.** The REST surface
-covers all of it — `POST /api/tasks`, `POST /api/tasks/{id}/claim`,
-`POST /api/tasks/{id}/worklog`, `POST /api/collaboration/rooms`,
+covers all of it — `POST /api/issues`, `POST /api/issues/{issueId}/claim`,
+`POST /api/issues/{issueId}/worklog`, `POST /api/collaboration/rooms`,
 `POST /api/chat/rooms/{roomId}/messages`. The Worker's own MCP (code mode) is the
 same thing with a tool wrapper. Remember REST wants `task_type` **and**
 `priority` explicitly (above).
@@ -285,34 +285,34 @@ server. Check:
 
 ```bash
 K=$(tokens show WORKER_API_KEY --value-only); B=https://colby-maestro.hacolby.workers.dev
-curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $K" "$B/api/tasks/<task_id>"
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $K" "$B/api/issues/<issue_id>"
 ```
 
-`404` means your work exists only on this Mac. Re-`POST` that one task to
-`/api/tasks` (same `task_id`, plus `task_type` and `priority`) and move on.
+`404` means your work exists only on this Mac. Re-`POST` that one issue to
+`/api/issues` (same `task_id`, plus `task_type` and `priority`) and move on.
 
-**3. Never run `worker_sync_tool(dry_run=False)` to publish your own task.** It
+**3. Never run `worker_sync_tool(dry_run=False)` to publish your own issue.** It
 reconciles *everything* — on 2026-09-13 that was 150 tasks across other agents'
 work, and its pulls overwrite local rows that may belong to a session still
-running. Run it only when reconciling the stores **is** your assigned task, and
+running. Run it only when reconciling the stores **is** your assigned issue, and
 read the dry-run plan first (`dry_run` defaults to `True` for that reason).
 
 ## The colby-maestro plugin enforces this
 
 The `colby-maestro` plugin (published from colby-ecosystem, enabled in user settings and in each repo's `.claude/settings.json`) does the tracking deterministically:
 
-- **Session start:** matches the repo to its project (git remote, then folder) and injects the active tasks.
-- **Prompt:** task ids you name are linked to the session.
-- **PRs:** `gh pr create` links the PR to every linked task.
-- **Stop:** a session that edited files is stopped once if no task is linked, or if no linked task changed since the edits.
+- **Session start:** matches the repo to its project (git remote, then folder) and injects the active issues.
+- **Prompt:** integer issue_ids you name are linked to the session.
+- **PRs:** `gh pr create` links the PR to every linked issue.
+- **Stop:** a session that edited files is stopped once if no issue is linked, or if no linked issue changed since the edits.
 - **Session end:** claims are released and a final heartbeat is sent.
 - **Guards:** edits in a main checkout or a reused worktree are blocked; symlinking `node_modules` is blocked. A repo that is never worked in a worktree (`~/bin`, `~/system-configs`) opts out with an empty `.claude/worktree-optional` file.
 
-Use `maestro-task` for status and worklog (`maestro-task status <id> review`, `maestro-task log <id> note "..."`), and the `maestro-worklog` skill for which kind to write. The old `maestro-session-end.py` (local-mirror sync) is retired to `~/.claude/hooks/retired/`.
+Use `maestro-issue` for status and worklog (`maestro-issue status <issue_id> review`, `maestro-issue log <issue_id> note "..."`), and the `maestro-worklog` skill for which kind to write. The old `maestro-session-end.py` (local-mirror sync) is retired to `~/.claude/hooks/retired/`.
 
 ## Out of token budget: Justin can approve a raise in chat, and you carry it out
 
-At 100% of a task's budget the gate denies nearly every tool. Your exit is to
+At 100% of an issue's budget the gate denies nearly every tool. Your exit is to
 estimate what finishing costs and file the landing proposal - and then, since
 2026-11-02, to act on his answer rather than hand him the write.
 
@@ -334,7 +334,7 @@ call from the message rather than writing it yourself:** its body depends on the
 landing's state, and the Worker refuses the wrong one - a landing with no proposal
 yet needs `remaining_estimate_tokens` as well, and one already proposed refuses
 it. The gate reads the status from the verdict and emits the form that works. It is scoped to
-that task, lasts 30 minutes, covers three attempts, and every
+that issue, lasts 30 minutes, covers three attempts, and every
 `extension_tokens` / `max_tokens` in the call must be within the figure he named.
 
 **Three things this does not do.** It does not let you raise a budget he has not
@@ -359,7 +359,7 @@ app, so without it the door has no handle. Full rules:
 ## Playbooks: search before you execute, write one when you solve something
 
 **Colby Maestro holds a playbook library: proven procedures for jobs that recur.**
-A briefing is read once, before the task is known; a playbook is searched when
+A briefing is read once, before the issue is known; a playbook is searched when
 the question arrives. Search it before a migration, a renumber, a merge of
 several PRs, a backup, a CI failure, or anything you suspect someone already
 solved.
@@ -370,7 +370,7 @@ async () => (await codemode.request({ method: "GET", path: "/api/playbooks" }))
 ```
 
 `GET /api/playbooks/{id}` returns the body (`revision.body_markdown`), and
-`GET /api/tasks/{taskId}/suggested-playbooks` matches one to a task.
+`GET /api/issues/{issueId}/suggested-playbooks` matches one to an issue.
 
 **Measured cost of skipping it, 2026-10-21:** an integrator renumbered four
 migrations with `pnpm run db:generate`, the exact move the playbook
@@ -390,14 +390,14 @@ One read, and it is the difference between work that is tracked and work that
 only looks tracked. **Read the worklog itself, and check your entry has TEXT:**
 
 ```bash
-curl -s -H "Authorization: Bearer $K" "$B/api/tasks/<task_id>" | head -c 200
-curl -s -H "Authorization: Bearer $K" "$B/api/tasks/<task_id>/worklog" \
+curl -s -H "Authorization: Bearer $K" "$B/api/issues/<issue_id>" | head -c 200
+curl -s -H "Authorization: Bearer $K" "$B/api/issues/<issue_id>/worklog" \
   | python3 -c "import json,sys
 for e in json.load(sys.stdin).get('entries', []):
     print(e['created_at'], e['kind'], repr(e.get('author')), len(e.get('body') or ''))"
 ```
 
-Your task's status and your final worklog entry should be visible **on the
+Your issue's status and your final worklog entry should be visible **on the
 Worker**. If they are not, fix that before you end the session — an agent that
 recorded everything faithfully into a store nobody reads has, from the operator's
 side, recorded nothing.
@@ -411,8 +411,8 @@ The `author` column is what tells your own entries apart from `system` status
 changes and `github` merge notices, so count only your own.
 
 **If you notice the drift growing, do not quietly fix it.** Append what you
-measured to task `maestro-store-drift-backfill` in the `colby-maestro` project.
-That task owns the backfill and the underlying fix; a second agent running a
+measured to issue `100000274` in the `colby-maestro` project.
+That issue owns the backfill and the underlying fix; a second agent running a
 partial sync on top of it makes the reconcile harder, not easier.
 
 # Read the canonical guide, do not re-derive it
@@ -422,13 +422,13 @@ file**, so the instructions you get and the ones Justin reads cannot disagree.
 **Call it once at the start of a session.** What it covers, in one line each — the
 guide is the authority on all of it:
 
-- **Claim the task before you start.** `task_claim_tool` /
-  `POST /api/tasks/{id}/claim` mints a `claim_key` and returns your briefing.
-  Every write to a claimed task carries that key or is refused with 409 — it is
+- **Claim the issue before you start.** `task_claim_tool` /
+  `POST /api/issues/{issueId}/claim` mints a `claim_key` and returns your briefing.
+  Every write to a claimed issue carries that key or is refused with 409 — it is
   what stops two agents silently overwriting each other.
 - **Keep the status honest while you work.** `backlog` → `todo` → `in_progress`
   (requires an assignee) → `review` / `blocked`. Move to `blocked` the moment you
-  are blocked and say what by. A task parked in `in_progress` while you wait is a
+  are blocked and say what by. An issue parked in `in_progress` while you wait is a
   lie that costs somebody an hour.
 - **Close with the status that tells the truth** — `done`, `resolved`,
   `wont_fix`, `duplicate`, `closed`. All five clear the board; they differ in what
@@ -439,7 +439,7 @@ guide is the authority on all of it:
 - **The worklog is the record and how you are visible.** Append at every real
   milestone: what you decided and why, what you measured with the number, what
   blocked you, what you handed off. One row per entry, append-only.
-- **Any task whose execution calls a model is tagged `ai-usage`** and goes through
+- **Any issue whose execution calls a model is tagged `ai-usage`** and goes through
   core-guardian — `record_usage` for a subscription CLI you ran, `run_inference`
   for a call guardian should execute. See `~/AGENTS-ai.md`.
 - **Rooms, not private messages**, when several sessions share one problem, and
@@ -451,7 +451,7 @@ guide is the authority on all of it:
 
 Before finishing: status reflects reality and is terminal if the work is over, a
 final worklog entry says what changed and what is left, and anything the next
-agent would want is written where it will be read. **An unfinished task left
+agent would want is written where it will be read. **An unfinished issue left
 `in_progress` by a session that ended is worse than one never created.**
 
 # A design lives in a Maestro plan and in the repo. Both, in full.
@@ -516,11 +516,11 @@ filing is what makes it reviewable instead of forgotten:
 Through the connector's `execute`:
 
 ```js
-async () => codemode.request({ method: "POST", path: "/api/tasks", body: {
+async () => codemode.request({ method: "POST", path: "/api/issues", body: {
   project_key: "colby-ecosystem", repo_path: "/Users/126colby/.colby-ecosystem",
   title: "PROPOSAL: Push workflow files over SSH",
   description: "Token paths need the workflow scope; SSH does not. Measured on one commit pushed both ways.",
-  status: "backlog", priority: "medium", task_type: "task",
+  status: "backlog", priority: "medium", task_type: "chore",
   tags: ["proposal", "agents-md"],
   plan_id: "95b7c398ea52", section_ids: ["6268f2184107"],
 }})
@@ -551,13 +551,13 @@ duplicate:
 
 ```bash
 curl -s -H "Authorization: Bearer $(tokens show WORKER_API_KEY --value-only)" \
-  "https://colby-maestro.hacolby.workers.dev/api/tasks?project_key=colby-ecosystem"
+  "https://colby-maestro.hacolby.workers.dev/api/issues?project_key=colby-ecosystem"
 ```
 
 **If the session touched a pre-existing MCP server, there is a second ask at this
 same moment** — whether to file an epic converting it to code mode, and whether
 to spawn an Orca task force on `claude-farm` to execute it. It needs measured
-numbers, an LOE, and (on approval) a full audit before any task is written:
+numbers, an LOE, and (on approval) a full audit before any issue is written:
 **`~/AGENTS-mcp.md`**, "Working on an existing MCP server or Worker?".
 
 **What makes a proposal worth filing.** The ones that pay off name the trap, the

@@ -1359,7 +1359,7 @@ the task status and worklog current while it runs.
 
 ## The colby-maestro MCP is the Worker connector — use it, every time
 
-**There is one colby-maestro MCP: the Worker's.** Every task, claim, worklog
+**There is one colby-maestro MCP: the Worker's.** Every issue, claim, worklog
 entry, plan, room, briefing and proposal goes through it. It is pre-approved (see
 "Standing authorizations") — no prompt, no asking first.
 
@@ -1381,7 +1381,7 @@ Claude Code, cloud sessions, and Claude on iOS. The bearer token is the standard
 diagram and the 60 agent-facing paths grouped by job. Read it instead of
 rediscovering the catalog.
 
-Tasks, status, claims, worklogs, plans, artifacts and feedback are MCP calls.
+Issues, status, claims, worklogs, plans, artifacts and feedback are MCP calls.
 Measured 2026-11-01: `codemode.spec().info.title` answers `Colby Maestro API`
 with **314 paths**, the same count as the Worker's own `/openapi.json`.
 
@@ -1390,9 +1390,9 @@ with **314 paths**, the same count as the Worker's own `/openapi.json`.
 | `mcp__colby-maestro__*` (`search` / `execute`) | the Worker's `/mcp` — `~/.config/colby-mcp/servers.json` maps `colby-maestro` to `https://colby-maestro.hacolby.workers.dev/mcp` through `mcp-remote` | **everything an agent tracks** |
 | Plain HTTP, same paths + `Authorization: Bearer $(tokens show WORKER_API_KEY --value-only)` | the Worker | the one fallback, when no code-mode server answers `Colby Maestro API` |
 | `colby-maestro` CLI (`~/.local/bin/colby-maestro`) | the Worker's REST API (`DEFAULT_WORKER_BASE_URL` in `local_ai_orchestrator/shared/worker_api.py`) | the operator surface a human drives. Not an agent's tracking door |
-| `maestro-task` (the plugin's CLI) | the Worker's REST API, plus plugin-local state (`plugins/colby-maestro/lib/colby_maestro/http.py`) | plugin-local jobs with no Worker route: `upload-replay`, `ding classify`. Never status, worklog or linking |
+| `maestro-issue` (the plugin's CLI) | the Worker's REST API, plus plugin-local state (`plugins/colby-maestro/lib/colby_maestro/http.py`) | plugin-local jobs with no Worker route: `upload-replay`, `ding classify`. Never status, worklog or linking |
 
-**To link a session to a task: name the task id in your next message.** The
+**To link a session to an issue: name the integer issue_id in your next message.** The
 plugin's prompt hook reads it and links it. With no plugin,
 `POST /api/agents/heartbeat` with `session_key` and `task_id` does the same.
 There is no `/bind` route among the 314 paths; linking is per-session plugin
@@ -1436,18 +1436,18 @@ different jobs and neither does the other's:
 
 | System | What it is | What it is NOT |
 |---|---|---|
-| **colby-maestro** — `colby-maestro.hacolby.workers.dev` | the **control plane**: tasks, claims, status, worklogs, plans, rooms, briefings, proposals | not a place to keep config or instruction files |
-| **colby-ecosystem** — `github.com/jmbish04/colby-ecosystem` | the **config store**: the machine-wide `AGENTS*.md` briefings, agent skills, templates, sample code, decision records | **not a task tracker.** Never record work, status, a claim or a worklog here, and never open an issue here in place of a maestro task |
+| **colby-maestro** — `colby-maestro.hacolby.workers.dev` | the **control plane**: issues, claims, status, worklogs, plans, rooms, briefings, proposals | not a place to keep config or instruction files |
+| **colby-ecosystem** — `github.com/jmbish04/colby-ecosystem` | the **config store**: the machine-wide `AGENTS*.md` briefings, agent skills, templates, sample code, decision records | **not an issue tracker.** Never record work, status, a claim or a worklog here, and never open an issue here in place of a maestro issue |
 
 Filing a PROPOSAL (see "End of session") does not break that rule: it creates a
-**maestro task whose `project_key` happens to be `colby-ecosystem`**. The tracking
+**maestro issue whose `project_key` happens to be `colby-ecosystem`**. The tracking
 lives in maestro; only the file the proposal wants changed lives in the repo.
 
 **One thing is still genuinely local.** `colby-maestro mcp-serve` can still run a
 FastMCP server on `127.0.0.1:4318`, and it is wired into no client on this
 machine — nothing in `~/.config/colby-mcp/servers.json` points at it. Start it
 only for the host-local operations the Worker's catalog does not carry
-(`orchestrator_*`, `cfg_*`, local model inventory). Never for a task, a status, a
+(`orchestrator_*`, `cfg_*`, local model inventory). Never for an issue, a status, a
 claim or a worklog.
 
 **Finding the connector — its name does not say "maestro".** In the desktop app
@@ -1468,7 +1468,7 @@ Justin to fix it:
 Call it with `Authorization: Bearer $(tokens show WORKER_API_KEY --value-only)`
 against `https://colby-maestro.hacolby.workers.dev`.
 
-**Three things `POST /api/tasks` refuses, whichever door you use:**
+**Three things `POST /api/issues` refuses, whichever door you use:**
 
 - no `task_type` or no `priority` — send both explicitly;
 - **no plan heading** — new work must carry `plan_id` and at least one
@@ -1493,8 +1493,8 @@ Two things to know rather than rediscover:
   content block and every line repeats the full `usage` of its request. Measured
   2026-10-14: 47 lines carrying usage held **18** distinct `requestId` values.
   Anything that sums lines over-reports by about 2.6x. The grain is the request.
-- **It is charged to whatever tasks are bound to the session**, several at once
-  if that is the truth. So binding a task is what makes its actual cost
+- **It is charged to whatever issues are bound to the session**, several at once
+  if that is the truth. So binding an issue is what makes its actual cost
   knowable — an unbound session's spend is recorded, but attributed to nothing.
 
 The raw rows land in `agent_token_usage` on the maestro Postgres; the budget
@@ -1525,7 +1525,7 @@ fits, not only at the very end.
    audit unasked.
 
 **Also check that this session's work is actually visible** where other people
-and agents read it: your task's status and final worklog entry should be on the
+and agents read it: your issue's status and final worklog entry should be on the
 Colby Maestro **Worker**, not only in the local mirror
 (`~/AGENTS-maestro.md` → "Do not add to the drift"). Work recorded into a store
 nobody reads is, from the operator's side, work nobody did.
@@ -1575,10 +1575,10 @@ you hit today.
 maestro MCP's `execute`:
 
 ```js
-async () => codemode.request({ method: "POST", path: "/api/tasks", body: {
+async () => codemode.request({ method: "POST", path: "/api/issues", body: {
   project_key: "colby-ecosystem", repo_path: "/Users/126colby/.colby-ecosystem",
   title: "PROPOSAL: …", description: "What you hit, the measurement, where.",
-  status: "backlog", priority: "medium", task_type: "task",
+  status: "backlog", priority: "medium", task_type: "chore",
   tags: ["proposal", "agents-md"],
   plan_id: "95b7c398ea52", section_ids: ["6268f2184107"],   // agents-md heading
 }})
@@ -1587,8 +1587,8 @@ async () => codemode.request({ method: "POST", path: "/api/tasks", body: {
 Kinds and their headings in the **Proposals to the shared standards** plan
 (`95b7c398ea52`): `agents-md` `6268f2184107` · `template` `d4d9ff099be4` ·
 `new-template` `418ca344bfed` · `docs` `f875da16dd52` · `tooling` `0b94233bc20a`.
-Proposals land as `backlog` tasks in `colby-ecosystem`. **Check the queue before
-filing** (`GET /api/tasks?project_key=colby-ecosystem`) so you add to an existing
+Proposals land as `backlog` issues in `colby-ecosystem`. **Check the queue before
+filing** (`GET /api/issues?project_key=colby-ecosystem`) so you add to an existing
 proposal rather than duplicating it. What makes a proposal worth filing:
 **`~/AGENTS-maestro.md`**.
 

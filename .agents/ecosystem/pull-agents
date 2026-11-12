@@ -134,33 +134,38 @@ select_file() {      # select_file <name> <reason>
 }
 
 detect() {
+  # Every grep here reads a here-string, never a pipe. `printf … | grep -q` lost a race
+  # under `set -o pipefail`: GNU grep exits at its first match, the still-writing printf
+  # dies of SIGPIPE, and the pipeline reports "no match". Measured 2026-11-11 on
+  # colby-maestro PR #472 ("line 157: printf: write error: Broken pipe"): consecutive runs
+  # on one tree deleted and re-added AGENTS-ai.md. scripts/test-pull-agents section 0b.
   local paths manifests f reason
   paths="$(repo_paths)"
   manifests="$(manifest_text)"
 
   for f in "${ALWAYS[@]}"; do select_file "$f" "always"; done
 
-  if reason="$(printf '%s\n' "$paths" | grep -m1 -E '(^|/)(wrangler\.(jsonc|toml|json)|\.dev\.vars)$' || true)"; [ -n "$reason" ]; then
+  if reason="$(grep -m1 -E '(^|/)(wrangler\.(jsonc|toml|json)|\.dev\.vars)$' <<< "$paths" || true)"; [ -n "$reason" ]; then
     select_file AGENTS-cloudflare-workers.md "$reason"
   fi
-  if reason="$(printf '%s\n' "$paths" | grep -m1 -E '(^|/)(astro|next|vite|svelte|nuxt)\.config\.[cm]?[jt]s$|(^|/)tailwind\.config\.|(^|/)components\.json$|\.(tsx|jsx|astro|svelte|vue)$' || true)"; [ -n "$reason" ]; then
+  if reason="$(grep -m1 -E '(^|/)(astro|next|vite|svelte|nuxt)\.config\.[cm]?[jt]s$|(^|/)tailwind\.config\.|(^|/)components\.json$|\.(tsx|jsx|astro|svelte|vue)$' <<< "$paths" || true)"; [ -n "$reason" ]; then
     select_file AGENTS-frontend.md "$reason"
   fi
-  if reason="$(printf '%s\n' "$paths" | grep -m1 -E '(^|/)(pyproject\.toml|setup\.py|requirements[^/]*\.txt)$|\.py$' || true)"; [ -n "$reason" ]; then
+  if reason="$(grep -m1 -E '(^|/)(pyproject\.toml|setup\.py|requirements[^/]*\.txt)$|\.py$' <<< "$paths" || true)"; [ -n "$reason" ]; then
     select_file AGENTS-python.md "$reason"
   fi
-  if reason="$(printf '%s\n' "$paths" | grep -m1 -iE '(^|/)mcp([-_/.]|$)|mcp-server' || true)"; [ -n "$reason" ]; then
+  if reason="$(grep -m1 -iE '(^|/)mcp([-_/.]|$)|mcp-server' <<< "$paths" || true)"; [ -n "$reason" ]; then
     select_file AGENTS-mcp.md "$reason"
-  elif printf '%s' "$manifests" | grep -qi 'modelcontextprotocol'; then
+  elif grep -qi 'modelcontextprotocol' <<< "$manifests"; then
     select_file AGENTS-mcp.md "modelcontextprotocol in a manifest"
   fi
-  if printf '%s' "$manifests" | grep -qE '@anthropic-ai|"openai"|"@ai-sdk|"ai":|anthropic|workers-ai|"ai"[[:space:]]*:[[:space:]]*\{'; then
+  if grep -qE '@anthropic-ai|"openai"|"@ai-sdk|"ai":|anthropic|workers-ai|"ai"[[:space:]]*:[[:space:]]*\{' <<< "$manifests"; then
     select_file AGENTS-ai.md "an AI SDK or Workers AI binding in a manifest"
   fi
-  if reason="$(printf '%s\n' "$paths" | grep -m1 -E '\.plist$|Launch(Agents|Daemons)' || true)"; [ -n "$reason" ]; then
+  if reason="$(grep -m1 -E '\.plist$|Launch(Agents|Daemons)' <<< "$paths" || true)"; [ -n "$reason" ]; then
     select_file AGENTS-macos.md "$reason"
   fi
-  if reason="$(printf '%s\n' "$paths" | grep -m1 -i 'proxmox' || true)"; [ -n "$reason" ]; then
+  if reason="$(grep -m1 -i 'proxmox' <<< "$paths" || true)"; [ -n "$reason" ]; then
     select_file AGENTS-proxmox.md "$reason"
   fi
 
